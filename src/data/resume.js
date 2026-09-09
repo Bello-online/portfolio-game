@@ -1,24 +1,26 @@
 // =====================================================================
-//  RESUME DATA — this is the only file you need to edit to make the
-//  game "yours". Every island on the map is one entry in `zones`.
+//  RESUME DATA — this is the only file you need to edit to change what
+//  the game says. Every island on the map is one entry in `zones`.
 //
 //  Block shapes supported inside `content`:
 //    { h: 'Heading', sub: 'Subtitle', meta: '2022 – now', p: 'Paragraph',
 //      bullets: ['...'], tags: ['React', 'Three.js'], links: [{ label, href }] }
 //  Every field is optional — use whichever ones fit the section.
-//
-//  TODO: replace every "PLACEHOLDER" string with your real details.
 // =====================================================================
 
+const GITHUB = 'https://github.com/Bello-online';
+const LINKEDIN = 'https://linkedin.com/in/bello-olaseni-17002a251';
+const EMAIL = 'olasenibello38@gmail.com';
+
 export const profile = {
-  name: 'Olaseni Bello',            // PLACEHOLDER — confirm spelling
-  title: 'Software Developer',      // PLACEHOLDER — your headline role
-  tagline: 'I build things for the web.', // PLACEHOLDER
+  name: 'Olaseni Bello',
+  title: 'Full-Stack Software Developer',
+  tagline: 'I take ambiguous problems from idea to production.',
   avatarInitial: 'O',
   // Character colours (hex)
   shirt: 0xff7b54,
   pants: 0x2b2d42,
-  skin: 0xf2c6a0,
+  skin: 0x8d5524,
   hair: 0x1b1b2f,
 };
 
@@ -32,14 +34,18 @@ export const zones = [
     prompt: 'Knock on the door',
     content: [
       {
-        p: 'PLACEHOLDER — a two or three sentence intro. Who you are, what you love building, and what you are looking for next.',
+        p: 'I’m a full-stack developer at Bell Canada with production experience across the whole stack, and a shipping-focused side portfolio that spans fintech, marketplaces, security tooling and small-business web.',
+      },
+      {
+        p: 'I build end to end — React/TypeScript front ends, Node.js and .NET/C# back ends, Postgres/Supabase and MongoDB data layers, and integrations like Stripe, Twilio and Google Maps — and I ship with automated tests, CI/CD and GitOps. I use AI-assisted, agentic development (Claude Code, Cursor, Copilot) every day.',
       },
       {
         h: 'Quick facts',
         bullets: [
-          'PLACEHOLDER — Based in City, Country',
-          'PLACEHOLDER — X years of experience',
-          'PLACEHOLDER — Currently working on …',
+          'Based in Hamilton, Ontario 🇨🇦',
+          'Software Developer at Bell Canada since May 2024',
+          'Certified: GitOps Fundamentals (Argo) · Microsoft Azure Fundamentals',
+          'Known for accessible, well-documented code and honest communication',
         ],
       },
     ],
@@ -53,25 +59,38 @@ export const zones = [
     prompt: 'Visit the office',
     content: [
       {
-        h: 'PLACEHOLDER — Job Title',
-        sub: 'PLACEHOLDER — Company',
-        meta: '2023 – Present',
+        h: 'Software Developer',
+        sub: 'Bell Canada · Mississauga, ON (Hybrid)',
+        meta: 'May 2024 – Present',
         bullets: [
-          'PLACEHOLDER — Impact statement with a number in it.',
-          'PLACEHOLDER — Something you shipped.',
-          'PLACEHOLDER — Something you improved.',
+          'Design, develop and maintain production web apps in React, TypeScript and Node.js for internal teams and customer-facing platforms.',
+          'Build reusable front-end components consumed across multiple internal platforms, wired to REST APIs and documented so distributed teams adopt them independently.',
+          'Develop and support .NET/C# backend services on SQL Server — API design, performance tuning and production debugging from logs and traces.',
+          'Write automated test suites (Jest, React Testing Library) and take part in rigorous code review to keep releases dependable as shared components evolve.',
+          'Ship through Docker-based CI/CD pipelines to cloud infrastructure using GitOps practices.',
         ],
-        tags: ['PLACEHOLDER', 'Tech', 'Used'],
+        tags: ['React', 'TypeScript', 'Node.js', '.NET / C#', 'SQL Server', 'Jest', 'Docker', 'GitOps'],
       },
       {
-        h: 'PLACEHOLDER — Previous Job Title',
-        sub: 'PLACEHOLDER — Company',
-        meta: '2021 – 2023',
+        h: 'Full-Stack Developer',
+        sub: 'FinanceCanada · financial-literacy platform',
+        meta: '2023 – Present',
         bullets: [
-          'PLACEHOLDER — Impact statement.',
-          'PLACEHOLDER — Impact statement.',
+          'Own features end to end — requirements, implementation, testing, deployment and iteration with real users — on a full product team.',
+          'Build the React/TypeScript front end and Node.js REST API; maintain a shared component library and design tokens so a distributed team ships consistent UI.',
+          'Collaborate across time zones through Git-based workflows with PR review and clear documentation.',
         ],
-        tags: ['PLACEHOLDER'],
+        tags: ['React', 'TypeScript', 'Node.js', 'Design tokens', 'GitHub'],
+      },
+      {
+        h: 'Junior Programmer (Co-op)',
+        sub: 'Ministry of the Solicitor General · Ontario Public Service · Hamilton, ON',
+        meta: 'Jan – Aug 2023',
+        bullets: [
+          'Developed and maintained internal applications and data-handling workflows (JSON processing and tooling) in a government environment with strict quality standards.',
+          'Worked directly with stakeholders to gather requirements, deliver iterations and document solutions for handover.',
+        ],
+        tags: ['JavaScript', 'JSON', 'Stakeholder management'],
       },
     ],
   },
@@ -84,21 +103,53 @@ export const zones = [
     prompt: 'Check the launch pad',
     content: [
       {
-        h: 'PLACEHOLDER — Project name',
-        sub: 'PLACEHOLDER — one-line description',
-        p: 'PLACEHOLDER — what it does, why you built it, what was hard.',
-        tags: ['Next.js', 'TypeScript', 'PLACEHOLDER'],
-        links: [
-          { label: 'Live site', href: 'https://example.com' },
-          { label: 'GitHub', href: 'https://github.com/Bello-online' },
-        ],
+        h: 'Wealth Folios',
+        sub: 'Investment portfolio tracker',
+        p: 'Imports Wealthsimple activity CSV exports, parses trades and account activity, and matches buys/sells into FIFO lots. Tracks open and sold positions, allocation and P/L with Recharts, plus historical exit-date simulations served by a Supabase Edge Function.',
+        bullets: ['Parsing and lot-matching logic covered by a Vitest unit-test suite.'],
+        tags: ['React 18', 'TypeScript', 'Vite', 'Tailwind', 'shadcn/ui', 'Recharts', 'Supabase', 'Vitest'],
+        links: [{ label: 'GitHub', href: GITHUB }],
       },
       {
-        h: 'PLACEHOLDER — Another project',
-        sub: 'PLACEHOLDER — one-line description',
-        p: 'PLACEHOLDER — details.',
-        tags: ['PLACEHOLDER'],
-        links: [{ label: 'GitHub', href: 'https://github.com/Bello-online' }],
+        h: 'QuickLyft',
+        sub: 'Moving-services marketplace (MVP)',
+        p: 'A three-sided marketplace — Customer app, Contractor app and Admin dashboard — sharing one booking → dispatch → completion → payment flow.',
+        bullets: [
+          'Stripe payments, Twilio SMS notifications and Google Maps routing/location.',
+          'Delivered in phased milestones (A–G) tracked through GitHub issues; pricing engine and business rules unit-tested on the backend.',
+        ],
+        tags: ['React', 'Node.js', 'Express', 'Supabase', 'Stripe', 'Twilio', 'Google Maps'],
+        links: [{ label: 'GitHub', href: GITHUB }],
+      },
+      {
+        h: 'Anti-Phishing Browser Plugin',
+        sub: 'Security tooling',
+        p: 'A browser extension with a companion server that helps users detect and avoid phishing websites — client-side detection UX paired with server-side checks.',
+        tags: ['Svelte', 'JavaScript', 'Node.js'],
+        links: [{ label: 'GitHub', href: GITHUB }],
+      },
+      {
+        h: 'MapApp',
+        sub: 'Web mapping application',
+        p: 'Browser geolocation, address geocoding and live GPS tracking in one map UI.',
+        tags: ['JavaScript', 'Geolocation API', 'Geocoding'],
+      },
+      {
+        h: 'SSD Employers',
+        sub: 'Employer management system',
+        p: 'CRUD workflows and structured data management for employer records.',
+        tags: ['C#', '.NET'],
+      },
+      {
+        h: 'More on the shelf',
+        bullets: [
+          'Fit-Path & Streak-Fit-Track — fitness-tracking web apps (TypeScript)',
+          'DoLittle — self-built URL shortener (Node.js / EJS)',
+          'MovieTracker & The Waitlist App',
+          'Freelance small-business sites — Apex Roofing, Greenscape Dream, Precision Pixel Shop (React / TypeScript)',
+          'Shopify Engineering Intern Challenge — Braille translation (Python)',
+        ],
+        links: [{ label: 'All repos on GitHub', href: GITHUB }],
       },
     ],
   },
@@ -110,10 +161,23 @@ export const zones = [
     color: '#ffd166',
     prompt: 'Inspect the crystal',
     content: [
-      { h: 'Languages', tags: ['JavaScript', 'TypeScript', 'PLACEHOLDER'] },
-      { h: 'Frontend', tags: ['React', 'Next.js', 'Three.js', 'Tailwind', 'PLACEHOLDER'] },
-      { h: 'Backend & data', tags: ['Node.js', 'PostgreSQL', 'Prisma', 'PLACEHOLDER'] },
-      { h: 'Tools', tags: ['Git', 'Vercel', 'Figma', 'PLACEHOLDER'] },
+      { h: 'Languages', tags: ['TypeScript', 'JavaScript (ES6+)', 'C#', 'Python', 'SQL', 'HTML5', 'CSS3'] },
+      {
+        h: 'Front end',
+        tags: ['React 18', 'Redux', 'Next.js', 'Vite', 'Svelte', 'Tailwind CSS', 'shadcn/ui', 'Radix UI', 'Recharts', 'Three.js', 'Accessible UI (WCAG)', 'Design tokens'],
+      },
+      {
+        h: 'Back end',
+        tags: ['Node.js', 'Express', '.NET / ASP.NET Core', 'REST API design', 'Auth & authorization', 'Supabase Edge Functions', 'Webhooks'],
+      },
+      {
+        h: 'Data',
+        tags: ['PostgreSQL (Supabase)', 'Microsoft SQL Server', 'MongoDB', 'MySQL', 'Data modeling', 'Caching & query optimization'],
+      },
+      { h: 'Integrations', tags: ['Stripe', 'Twilio', 'Google Maps API', 'Wealthsimple data pipelines', 'Postman'] },
+      { h: 'Cloud & DevOps', tags: ['Docker', 'AWS', 'Azure', 'CI/CD', 'GitOps with Argo CD', 'Git / GitHub / GitLab'] },
+      { h: 'Testing & quality', tags: ['Jest', 'React Testing Library', 'Vitest', 'TDD', 'Debugging & profiling'] },
+      { h: 'AI-assisted development', tags: ['Claude & Claude Code', 'GitHub Copilot', 'Cursor'] },
     ],
   },
   {
@@ -125,14 +189,17 @@ export const zones = [
     prompt: 'Open the books',
     content: [
       {
-        h: 'PLACEHOLDER — Degree / Program',
-        sub: 'PLACEHOLDER — School',
-        meta: '2019 – 2023',
-        bullets: ['PLACEHOLDER — Honours, relevant coursework, or clubs.'],
+        h: 'Advanced Diploma, Computer Systems Technology — Software Development',
+        sub: 'Mohawk College · Hamilton, ON',
+        meta: '3-year program',
       },
       {
         h: 'Certifications',
-        bullets: ['PLACEHOLDER — Certification (Year)'],
+        bullets: [
+          'GitOps Fundamentals (GitOps with Argo) — Octopus Deploy / Codefresh, 2026',
+          'Microsoft Certified: Azure Fundamentals (AZ-900) — Microsoft',
+          'The Complete Full-Stack Web Development Bootcamp — Dr. Angela Yu (Udemy)',
+        ],
       },
     ],
   },
@@ -145,14 +212,14 @@ export const zones = [
     prompt: 'Check the mailbox',
     content: [
       {
-        p: 'PLACEHOLDER — Thanks for exploring! I’m open to new opportunities and always happy to chat.',
+        p: 'Thanks for exploring! I’m open to new opportunities and always happy to talk about full-stack work, fintech, or building things with AI. The fastest way to reach me is email.',
       },
       {
         links: [
-          { label: '✉️ Email', href: 'mailto:PLACEHOLDER@example.com' },
-          { label: 'GitHub', href: 'https://github.com/Bello-online' },
-          { label: 'LinkedIn', href: 'https://linkedin.com/in/PLACEHOLDER' },
-          { label: '📄 Résumé (PDF)', href: '#' },
+          { label: '✉️ ' + EMAIL, href: `mailto:${EMAIL}` },
+          { label: 'GitHub', href: GITHUB },
+          { label: 'LinkedIn', href: LINKEDIN },
+          { label: '📄 Résumé (PDF)', href: '/Olaseni-Bello-Resume.pdf' },
         ],
       },
     ],
