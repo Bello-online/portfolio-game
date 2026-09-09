@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Portfolio Quest</title>
+    <meta name="description" content="An interactive, game-like portfolio. Walk around the islands to explore my experience, projects and skills." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏝️</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <!-- Intro / title screen -->
+    <div id="intro" class="overlay">
+      <div class="intro-card">
+        <div class="intro-badge">PORTFOLIO QUEST</div>
+        <h1 id="intro-name">Loading…</h1>
+        <p id="intro-title"></p>
+        <p class="intro-hint">
+          Walk across the bridges to visit each island.<br />
+          Each island is a chapter of my résumé.
+        </p>
+        <div class="keys">
+          <div class="keycap-row">
+            <span class="keycap">W</span><span class="keycap">A</span><span class="keycap">S</span><span class="keycap">D</span>
+            <span class="key-label">move</span>
+          </div>
+          <div class="keycap-row">
+            <span class="keycap wide">E</span>
+            <span class="key-label">explore an island</span>
+          </div>
+          <div class="keycap-row">
+            <span class="keycap wide">Esc</span>
+            <span class="key-label">close</span>
+          </div>
+        </div>
+        <button id="start-btn" class="btn-primary">▶ Start</button>
+        <p class="intro-foot">Touch devices: drag the joystick to move, tap the button to explore.</p>
+      </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" hidden>
+      <div class="hud-top-left">
+        <div class="hud-avatar" id="hud-avatar">?</div>
+        <div>
+          <div class="hud-name" id="hud-name"></div>
+          <div class="hud-role" id="hud-title"></div>
+        </div>
+      </div>
+
+      <div class="hud-top-right">
+        <div class="quest-title">QUEST LOG</div>
+        <ul id="quest-list"></ul>
+        <div class="quest-progress"><div id="quest-bar"></div></div>
+        <div class="quest-pct" id="quest-pct">0% explored</div>
+      </div>
+
+      <div class="hud-bottom-left">
+        <span class="keycap sm">WASD</span> move &nbsp; <span class="keycap sm">E</span> explore &nbsp; <span class="keycap sm">click</span> quest log to fast travel
+      </div>
+
+      <div id="prompt" class="prompt" hidden>
+        <span class="keycap">E</span> <span id="prompt-text"></span>
+      </div>
+
+      <div id="zone-toast" class="zone-toast" hidden></div>
+
+      <!-- Touch controls -->
+      <div id="joystick" class="joystick" hidden>
+        <div class="joystick-base"><div class="joystick-knob"></div></div>
+      </div>
+      <button id="action-btn" class="action-btn" hidden>E</button>
+    </div>
+
+    <!-- Section panel -->
+    <div id="panel" class="overlay" hidden>
+      <div class="panel-card">
+        <div class="panel-header" id="panel-header">
+          <div>
+            <div class="panel-kicker" id="panel-kicker"></div>
+            <h2 id="panel-title"></h2>
+          </div>
+          <button id="panel-close" class="btn-close" aria-label="Close">✕</button>
+        </div>
+        <div class="panel-body" id="panel-body"></div>
+        <div class="panel-footer">
+          <span class="keycap sm">Esc</span> back to the map
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
