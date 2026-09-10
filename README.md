@@ -37,14 +37,25 @@ Everything the game says comes from one file: [`src/data/resume.js`](src/data/re
 
 Every field is optional. Add or remove planets and objectives freely — orbits, terminal placement and access codes are generated automatically (set `code: 'UDLR'` on an objective to pin one).
 
+## Graphics
+
+Everything is generated at load time — there are no image, model, or audio assets:
+
+- `textures.js` builds every texture from value noise: terrain albedo + normal maps, equirect planet maps with matching normals, cloud layers, water/lava normal + emissive maps, grass blades, fog wisps, lens-flare elements.
+- Post stack (`main.js` + `post.js`): UnrealBloom → tone-map → SMAA → colour grade (vignette, chromatic aberration, film grain).
+- Each biome (`biomes.js`) sets its palette, weather (snow / embers / spores / dust / motes), liquid (water or emissive lava that fills low terrain), ground scatter, and whether it grows wind-swayed grass.
+
 ## Project layout
 
 ```
 src/
-  main.js        state machine: intro → ship → drop → surface → extract
-  ship.js        campaign map (planets, orbits, selection reticle)
-  planet.js      surface: terrain, props, terminals, beacon, drop pod, effects
-  biomes.js      per-planet palettes and prop mixes
+  main.js        state machine: intro → ship → fly → drop → surface → extract; post stack
+  ship.js        campaign map: textured planets, clouds, rings, asteroid belt, star + flare, flight cinematic
+  shipmodel.js   the deployment vessel (shared by the map and the surface skyline)
+  planet.js      surface: terrain, liquids, weather, fog, grass, props, terminals, beacon, drop pod
+  biomes.js      per-planet palettes, weather, liquids and prop mixes
+  textures.js    procedural texture generators
+  post.js        colour-grading shader pass
   player.js      armoured trooper with cape + walk cycle
   input.js       keyboard + touch joystick
   ui.js          intro, HUD, compass, markers, code prompt, intel panel
