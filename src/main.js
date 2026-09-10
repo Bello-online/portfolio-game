@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createShip } from './ship.js';
 import { createPlanet } from './planet.js';
 import { Player } from './player.js';
@@ -16,7 +20,7 @@ function makeCode(len) {
   const out = [];
   while (out.length < len) {
     const a = ARROWS[Math.floor(codeRand() * 4)];
-    if (out.length >= 2 && out[out.length - 1] === a && out[out.length - 2] === a) continue; // avoid triples
+    if (out.length >= 2 && out[out.length - 1] === a && out[out.length - 2] === a) continue;
     out.push(a);
   }
   return out;
@@ -26,32 +30,41 @@ planets.forEach((p) => p.objectives.forEach((o, i) => {
 }));
 const EXTRACT_CODE = ['up', 'down', 'right', 'left', 'up'];
 
-// ---------- renderer ----------
+// ---------- renderer + post ----------
 const canvas = document.querySelector('#game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.55, 0.82);
+composer.addPass(renderPass);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
 // ---------- state ----------
 const state = {
-  mode: 'intro', // intro | ship | transition | drop | surface | extract
+  mode: 'intro', // intro | ship | fly | transition | drop | surface | extract
   planet: null,
   surface: null,
   liberated: new Set(),
   done: new Set(),
   extractUnlocked: false,
-  target: null,      // current interactable { kind, id, code, label, position }
+  target: null,
   progress: 0,
 };
 
-const surfaceCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 700);
-const CAM_OFFSET = new THREE.Vector3(0, 20, 15);
+const surfaceCamera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 800);
+const CAM_OFFSET = new THREE.Vector3(0, 27, 21);
+const DROP_CAM_OFFSET = new THREE.Vector3(9, 16, 24);
 const camTarget = new THREE.Vector3();
 const lookTarget = new THREE.Vector3();
+const camLookSmooth = new THREE.Vector3();
 const tmp = new THREE.Vector3();
 
 const ship = createShip(planets);
@@ -59,6 +72,7 @@ ship.resize(window.innerWidth / window.innerHeight);
 
 const input = new Input({ joystickEl: document.getElementById('joystick'), actionBtn: document.getElementById('action-btn') });
 let player = null;
+let extractLift = 0;
 
 const ui = new UI({
   profile, campaign, planets,
@@ -90,7 +104,6 @@ function selectPlanet(i) {
   audio.uiTick();
 }
 
-// click / hover on the campaign map
 canvas.addEventListener('click', (e) => {
   if (state.mode !== 'ship') return;
   const idx = ship.pick((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
@@ -105,31 +118,31 @@ canvas.addEventListener('pointermove', (e) => {
 });
 
 // ---------- deployment ----------
-async function deploy() {
+function deploy() {
   if (state.mode !== 'ship') return;
   const planet = planets[ship.selected];
-  state.mode = 'transition';
+  state.mode = 'fly';
   audio.deploy();
-  ui.banner(`DEPLOYING TO ${planet.name}`, planet.designation);
-  await ui.fade(true);
+  ui.setMapHud(false);
+  ui.banner(`EN ROUTE TO ${planet.name}`, planet.designation);
+  ship.startFlight(ship.selected, () => landOn(planet));
+}
+
+async function landOn(planet) {
+  state.mode = 'transition';
+  await ui.fade(true, 'white');
 
   state.planet = planet;
   state.done = new Set();
   state.extractUnlocked = false;
   state.target = null;
   state.progress = 0;
+  extractLift = 0;
   state.surface = createPlanet(planet);
   player = new Player(state.surface.scene, profile);
   player.setVisible(false);
   ui.showSurface(planet);
 
-  // cinematic camera for the drop
-  const sp = state.surface.spawn;
-  surfaceCamera.position.set(sp.x + 22, sp.y + 11, sp.z + 26);
-  surfaceCamera.lookAt(sp.x, sp.y + 20, sp.z);
-
-  await ui.fade(false);
-  state.mode = 'drop';
   state.surface.startDrop((ev) => {
     if (ev === 'impact') audio.impact();
     if (ev === 'door') audio.doorOpen();
@@ -138,10 +151,17 @@ async function deploy() {
       player.teleport(pp.x, pp.z + 2.2, state.surface.heightAt, 0);
       player.setVisible(true);
       state.mode = 'surface';
-      ui.banner(`${planet.name}`, `secure ${planet.objectives.length} intel terminal${planet.objectives.length > 1 ? 's' : ''}`);
+      ui.banner(planet.name, `secure ${planet.objectives.length} intel terminal${planet.objectives.length > 1 ? 's' : ''}`);
       audio.banner();
     }
   });
+  // start the camera riding alongside the pod, high in the atmosphere
+  const pp = state.surface.podPosition;
+  surfaceCamera.position.copy(pp).add(DROP_CAM_OFFSET);
+  camLookSmooth.copy(pp);
+  surfaceCamera.lookAt(pp);
+  state.mode = 'drop';
+  await ui.fade(false);
 }
 
 async function returnToShip(liberatedNow) {
@@ -150,7 +170,7 @@ async function returnToShip(liberatedNow) {
   state.mode = 'transition';
   ui.closeIntel();
   ui.hidePrompt();
-  await ui.fade(true);
+  await ui.fade(true, 'white');
   state.surface.dispose();
   state.surface = null;
   player = null;
@@ -159,7 +179,9 @@ async function returnToShip(liberatedNow) {
     ship.setLiberated(planet.id);
     ui.setCampaignProgress(state.liberated);
   }
+  ship.showOverview();
   ui.showShip();
+  ui.setMapHud(true);
   ui.clearMarkers();
   selectPlanet(ship.selected);
   await ui.fade(false);
@@ -170,7 +192,6 @@ async function returnToShip(liberatedNow) {
       ui.banner('CAMPAIGN COMPLETE', 'every planet liberated — thank you for reading');
     } else {
       ui.banner(`${planet.name} LIBERATED`, `${state.liberated.size} of ${planets.length} planets secured`);
-      // auto-advance the selection to the next un-liberated planet
       for (let k = 1; k <= planets.length; k++) {
         const idx = (ship.selected + k) % planets.length;
         if (!state.liberated.has(planets[idx].id)) { selectPlanet(idx); break; }
@@ -234,8 +255,7 @@ function handleCodeInput() {
   const arrows = input.consumeArrows();
   if (!state.target) return;
   const code = state.target.code;
-  // touch fallback: the action button enters the whole code
-  if (input.isTouch && input.consumeAction()) { state.progress = code.length; }
+  if (input.isTouch && input.consumeAction()) state.progress = code.length;
   for (const a of arrows) {
     if (state.progress >= code.length) break;
     if (a === code[state.progress]) {
@@ -260,7 +280,7 @@ function updateSurfaceHud() {
   const bearings = [];
   const add = (id, kind, index, position, label, done) => {
     tmp.copy(position);
-    tmp.y += 4.2;
+    tmp.y += 4.6;
     tmp.project(surfaceCamera);
     const dx = position.x - p.x, dz = position.z - p.z;
     const dist = Math.hypot(dx, dz);
@@ -281,9 +301,8 @@ const STEP = 0.05;
 function frame() {
   const raw = clock.getDelta();
   input.update();
-  // Fixed-size sub-steps: a normal 60 fps frame is one step, and after a stall
-  // (tab switch, throttled background timer) the simulation catches up instead
-  // of freezing timed sequences like the drop.
+  // Fixed-size sub-steps: a normal 60 fps frame is one step; after a stall
+  // (tab switch, throttled background timer) the simulation catches up.
   const steps = Math.min(60, Math.max(1, Math.ceil(raw / STEP)));
   for (let i = 0; i < steps; i++) tick(raw / steps, clock.elapsedTime);
   render();
@@ -292,13 +311,15 @@ function frame() {
 }
 
 function render() {
-  const onSurface = state.surface && state.mode !== 'ship' && state.mode !== 'intro';
-  if (onSurface) renderer.render(state.surface.scene, surfaceCamera);
-  else renderer.render(ship.scene, ship.camera);
+  const onSurface = state.surface && !['ship', 'intro', 'fly'].includes(state.mode);
+  renderPass.scene = onSurface ? state.surface.scene : ship.scene;
+  renderPass.camera = onSurface ? surfaceCamera : ship.camera;
+  composer.render();
 }
 
 function tick(dt, t) {
-  if (state.mode === 'intro' || state.mode === 'ship' || (state.mode === 'transition' && !state.surface)) {
+  const onMap = ['intro', 'ship', 'fly'].includes(state.mode) || (state.mode === 'transition' && !state.surface);
+  if (onMap) {
     if (state.mode === 'ship') {
       for (const a of input.consumeArrows()) {
         if (a === 'left' || a === 'up') selectPlanet(ship.selected - 1);
@@ -310,54 +331,72 @@ function tick(dt, t) {
       input.consumeArrows(); input.consumeAction(); input.consumeEscape();
     }
     ship.update(dt, t);
-    if (state.mode !== 'intro') ui.updatePlanetLabels(ship.planetScreen(window.innerWidth, window.innerHeight), state.liberated);
-  } else if (state.surface) {
-    const s = state.surface;
-
-    if (state.mode === 'drop') {
-      input.consumeArrows(); input.consumeAction(); input.consumeEscape();
-      // track the falling pod, then ease into the follow camera once the door opens
-      const pp = s.podPosition;
-      lookTarget.set(pp.x, Math.min(pp.y, 40) * 0.45 + 3, pp.z);
-      surfaceCamera.lookAt(lookTarget);
-    } else if (state.mode === 'surface') {
-      if (ui.intelOpen) {
-        input.consumeArrows();
-        if (input.consumeEscape() || input.consumeAction()) ui.closeIntel();
-      } else {
-        input.consumeEscape();
-        player.update(dt, input.vector, input.sprint, s);
-        const target = findTarget();
-        if (target?.id !== state.target?.id) {
-          state.target = target;
-          state.progress = 0;
-          if (target) { ui.showPrompt(target.label, target.code, 0); audio.uiTick(); }
-          else ui.hidePrompt();
-        }
-        if (state.target) handleCodeInput();
-        else { input.consumeArrows(); input.consumeAction(); }
-      }
-    } else {
-      // extract / transition: freeze input
-      input.consumeArrows(); input.consumeAction(); input.consumeEscape();
-      if (player) player.update(dt, { x: 0, z: 0 }, false, s);
-    }
-
-    if (player && state.mode !== 'drop') {
-      camTarget.copy(player.position).add(CAM_OFFSET);
-      surfaceCamera.position.lerp(camTarget, 1 - Math.pow(0.002, dt));
-      lookTarget.set(player.position.x, player.position.y + 1.4, player.position.z);
-      surfaceCamera.lookAt(lookTarget);
-    }
-    if (s.shake > 0) {
-      const k = s.shake * s.shake * 0.6;
-      shakeVec.set((Math.random() - 0.5) * k, (Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
-      surfaceCamera.position.add(shakeVec);
-    }
-
-    s.update(dt, t, surfaceCamera, player ? player.position : s.spawn);
-    if (player && state.mode === 'surface') updateSurfaceHud();
+    if (state.mode === 'ship') ui.updatePlanetLabels(ship.planetScreen(window.innerWidth, window.innerHeight), state.liberated);
+    return;
   }
+
+  const s = state.surface;
+  if (!s) return;
+
+  if (state.mode === 'drop') {
+    input.consumeArrows(); input.consumeAction(); input.consumeEscape();
+    // ride the pod down through the atmosphere
+    const pp = s.podPosition;
+    if (s.dropPhase === 'falling') {
+      camTarget.copy(pp).add(DROP_CAM_OFFSET);
+      surfaceCamera.position.lerp(camTarget, 1 - Math.pow(0.0005, dt));
+      camLookSmooth.lerp(pp, 1 - Math.pow(0.0005, dt));
+    } else {
+      // after impact, pull up and out towards the play camera
+      camTarget.copy(pp).add(CAM_OFFSET).add(tmp.set(0, -6, -4));
+      surfaceCamera.position.lerp(camTarget, 1 - Math.pow(0.05, dt));
+      camLookSmooth.lerp(tmp.set(pp.x, pp.y + 1.5, pp.z), 1 - Math.pow(0.02, dt));
+    }
+    surfaceCamera.lookAt(camLookSmooth);
+  } else if (state.mode === 'surface') {
+    if (ui.intelOpen) {
+      input.consumeArrows();
+      if (input.consumeEscape() || input.consumeAction()) ui.closeIntel();
+    } else {
+      input.consumeEscape();
+      player.update(dt, input.vector, input.sprint, s);
+      const target = findTarget();
+      if (target?.id !== state.target?.id) {
+        state.target = target;
+        state.progress = 0;
+        if (target) { ui.showPrompt(target.label, target.code, 0); audio.uiTick(); }
+        else ui.hidePrompt();
+      }
+      if (state.target) handleCodeInput();
+      else { input.consumeArrows(); input.consumeAction(); }
+    }
+  } else {
+    input.consumeArrows(); input.consumeAction(); input.consumeEscape();
+    if (player) {
+      player.update(dt, { x: 0, z: 0 }, false, s);
+      if (state.mode === 'extract') {
+        // lift the trooper up the beacon's beam
+        extractLift += dt;
+        if (extractLift > 0.5) player.group.position.y += (extractLift - 0.5) * 30 * dt;
+      }
+    }
+  }
+
+  if (player && state.mode !== 'drop') {
+    camTarget.copy(player.position).add(CAM_OFFSET);
+    surfaceCamera.position.lerp(camTarget, 1 - Math.pow(0.002, dt));
+    lookTarget.set(player.position.x, player.position.y + 1.4, player.position.z);
+    camLookSmooth.lerp(lookTarget, 1 - Math.pow(0.001, dt));
+    surfaceCamera.lookAt(camLookSmooth);
+  }
+  if (s.shake > 0) {
+    const k = s.shake * s.shake * 0.7;
+    shakeVec.set((Math.random() - 0.5) * k, (Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
+    surfaceCamera.position.add(shakeVec);
+  }
+
+  s.update(dt, t, surfaceCamera, player ? player.position : s.spawn);
+  if (player && state.mode === 'surface') updateSurfaceHud();
 }
 
 window.addEventListener('resize', () => {
@@ -366,6 +405,7 @@ window.addEventListener('resize', () => {
   surfaceCamera.updateProjectionMatrix();
   ship.resize(aspect);
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
 });
 
 frame();

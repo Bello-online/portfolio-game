@@ -43,6 +43,14 @@ export class Player {
     // shoulder pads
     this.body.add(part(new THREE.BoxGeometry(0.42, 0.28, 0.66), armor, -0.68, 0.42, 0));
     this.body.add(part(new THREE.BoxGeometry(0.42, 0.28, 0.66), armor, 0.68, 0.42, 0));
+    // belt + pouches
+    this.body.add(part(new THREE.BoxGeometry(1.0, 0.16, 0.64), dark, 0, -0.5, 0));
+    this.body.add(part(new THREE.BoxGeometry(0.22, 0.22, 0.18), armor, -0.32, -0.5, 0.36));
+    this.body.add(part(new THREE.BoxGeometry(0.22, 0.22, 0.18), armor, 0.32, -0.5, 0.36));
+    // backpack antenna + status lights
+    this.body.add(part(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 4), dark, -0.25, 0.85, -0.55));
+    this.body.add(part(new THREE.BoxGeometry(0.08, 0.08, 0.04), visor, 0.1, 0.25, -0.66));
+    this.body.add(part(new THREE.BoxGeometry(0.08, 0.08, 0.04), visor, 0.1, 0.1, -0.66));
     this.group.add(this.body);
 
     // helmet
@@ -94,7 +102,7 @@ export class Player {
     this.group.add(blob);
 
     // helmet lamp — small point light that helps the character pop on dark planets
-    this.lamp = new THREE.PointLight(profile.visor, 6, 7, 2);
+    this.lamp = new THREE.PointLight(profile.visor, 2.5, 7, 2);
     this.lamp.position.set(0, 2.3, 0.6);
     this.group.add(this.lamp);
 

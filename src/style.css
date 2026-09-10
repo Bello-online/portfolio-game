@@ -46,6 +46,7 @@ html, body {
   transition: opacity 0.55s ease;
 }
 #fade.on { opacity: 1; pointer-events: auto; }
+#fade.white { background: #f4f0e6; }
 
 [hidden] { display: none !important; }
 

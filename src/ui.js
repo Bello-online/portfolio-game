@@ -106,12 +106,20 @@ export class UI {
     if (this.isTouch) $('action-btn').hidden = true;
   }
 
-  fade(on) {
+  fade(on, color = 'black') {
     const el = $('fade');
     return new Promise((resolve) => {
+      if (on) el.classList.toggle('white', color === 'white');
       el.classList.toggle('on', on);
       setTimeout(resolve, 580);
     });
+  }
+
+  /** Hide the map chrome (labels, info panel, hints) during the flight cinematic. */
+  setMapHud(visible) {
+    $('planet-labels').hidden = !visible;
+    $('planet-info').hidden = !visible;
+    document.querySelectorAll('#ship-ui .hint, #ship-ui .top-center').forEach((el) => { el.hidden = !visible; });
   }
 
   banner(text, sub = '') {

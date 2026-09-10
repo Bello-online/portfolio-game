@@ -5,10 +5,11 @@ A game-like portfolio built with [three.js](https://threejs.org/) and Vite, styl
 ## How it plays
 
 1. **Campaign map** — six planets orbit a star. Each one is a résumé section. Select with `◀ ▶` (or click) and press `ENTER` to deploy.
-2. **Drop** — a pod falls from orbit, hits the surface, and the door opens.
-3. **Surface** — walk (`WASD`, `SHIFT` to sprint) to the intel terminals marked on the compass and in the world. At a terminal, punch in its access code with the arrow keys.
-4. **Intel** — a correct code opens that section's content. `ESC` closes it.
-5. **Extract** — once every terminal is secured an extraction beacon appears. Enter its code to return to the ship and mark the planet liberated.
+2. **Flight** — the deployment vessel warps to the planet (chase cam, warp streaks), parks in orbit, and launches the drop pod.
+3. **Drop** — the camera rides the pod down through the atmosphere; it hits the surface and the door opens.
+4. **Surface** — walk (`WASD`, `SHIFT` to sprint) to the intel terminals marked on the compass and in the world. At a terminal, punch in its access code with the arrow keys.
+5. **Intel** — a correct code opens that section's content. `ESC` closes it.
+6. **Extract** — once every terminal is secured an extraction beacon appears. Enter its code to return to the ship and mark the planet liberated.
 
 Touch devices get a joystick and an action button that enters the code for you.
 
