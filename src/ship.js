@@ -249,7 +249,7 @@ export function createShip(planets) {
   let selected = 0;
   let camAngle = 0.6;
   let camMode = 'overview';
-  const camPos = new THREE.Vector3(Math.sin(camAngle) * 58, 32, Math.cos(camAngle) * 58);
+  const camPos = new THREE.Vector3(Math.sin(camAngle) * 104, 58, Math.cos(camAngle) * 104);
   const camLook = new THREE.Vector3(0, -2, 0);
   const desiredPos = new THREE.Vector3();
   const desiredLook = new THREE.Vector3();
@@ -388,8 +388,10 @@ export function createShip(planets) {
 
     if (camMode === 'overview') {
       camAngle += dt * 0.04;
-      desiredPos.set(Math.sin(camAngle) * 58, 32, Math.cos(camAngle) * 58);
-      desiredLook.set(0, -2, 0);
+      // zoom out further on narrow viewports so the outer orbits stay in frame
+      const zoom = Math.max(1, 1.45 / camera.aspect);
+      desiredPos.set(Math.sin(camAngle) * 104 * zoom, 58 * zoom, Math.cos(camAngle) * 104 * zoom);
+      desiredLook.set(0, -5, 0);
     }
     const holding = flight && flight.phase === 'hold';
     if (!holding) {

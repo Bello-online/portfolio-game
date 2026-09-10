@@ -55,7 +55,7 @@ export class UI {
     planets.forEach((p, i) => {
       const el = document.createElement('div');
       el.className = 'planet-label';
-      el.innerHTML = `<div class="pl-name">${escapeHtml(p.name)}</div><div class="pl-sub">${escapeHtml(p.designation)}</div><div class="pl-tick"></div>`;
+      el.innerHTML = `<div class="pl-name">${escapeHtml(p.designation)}</div><div class="pl-sub">${escapeHtml(p.name)}</div><div class="pl-tick"></div>`;
       el.addEventListener('click', () => onSelectPlanet(i, true));
       labels.appendChild(el);
       this.labelEls.set(p.id, el);
@@ -99,7 +99,7 @@ export class UI {
   showSurface(planet) {
     $('ship-ui').hidden = true;
     $('surface-ui').hidden = false;
-    $('s-planet').textContent = `${planet.name} · ${planet.designation}`;
+    $('s-planet').textContent = `${planet.designation} · ${planet.name}`;
     $('s-mission').textContent = `Mission: secure ${planet.objectives.length} intel terminal${planet.objectives.length > 1 ? 's' : ''}, then extract`;
     this.clearMarkers();
     this.setObjectives(planet, new Set(), false);
@@ -144,8 +144,8 @@ export class UI {
   selectPlanet(planet, liberated) {
     const biome = BIOMES[planet.biome] || BIOMES.moon;
     $('pi-sector').textContent = planet.sector;
-    $('pi-name').textContent = planet.name;
-    $('pi-designation').textContent = planet.designation;
+    $('pi-name').textContent = planet.designation;
+    $('pi-designation').textContent = `Planet ${planet.name}`;
     $('pi-brief').textContent = planet.brief;
     $('pi-biome').textContent = biome.label;
     $('pi-objectives').textContent = String(planet.objectives.length);
@@ -168,7 +168,7 @@ export class UI {
       el.classList.toggle('liberated', liberated.has(p.id));
       const sub = el.querySelector('.pl-sub');
       const planet = this.planets.find((x) => x.id === p.id);
-      sub.textContent = liberated.has(p.id) ? 'LIBERATED' : planet.designation;
+      sub.textContent = liberated.has(p.id) ? `${planet.name} · LIBERATED` : planet.name;
     }
   }
 

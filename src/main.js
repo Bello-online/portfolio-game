@@ -133,7 +133,7 @@ function deploy() {
   state.mode = 'fly';
   audio.deploy();
   ui.setMapHud(false);
-  ui.banner(`EN ROUTE TO ${planet.name}`, planet.designation);
+  ui.banner(planet.designation, `en route to ${planet.name}`);
   ship.startFlight(ship.selected, () => landOn(planet));
 }
 
@@ -160,7 +160,7 @@ async function landOn(planet) {
       player.teleport(pp.x, pp.z + 2.2, state.surface.heightAt, 0);
       player.setVisible(true);
       state.mode = 'surface';
-      ui.banner(planet.name, `secure ${planet.objectives.length} intel terminal${planet.objectives.length > 1 ? 's' : ''}`);
+      ui.banner(planet.designation, `${planet.name} · secure ${planet.objectives.length} intel terminal${planet.objectives.length > 1 ? 's' : ''}`);
       audio.banner();
     }
   });
@@ -200,7 +200,7 @@ async function returnToShip(liberatedNow) {
     if (state.liberated.size === planets.length) {
       ui.banner('CAMPAIGN COMPLETE', 'every planet liberated — thank you for reading');
     } else {
-      ui.banner(`${planet.name} LIBERATED`, `${state.liberated.size} of ${planets.length} planets secured`);
+      ui.banner(`${planet.designation} SECURED`, `${planet.name} liberated · ${state.liberated.size} of ${planets.length} planets`);
       for (let k = 1; k <= planets.length; k++) {
         const idx = (ship.selected + k) % planets.length;
         if (!state.liberated.has(planets[idx].id)) { selectPlanet(idx); break; }
