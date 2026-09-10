@@ -102,7 +102,7 @@ export function createShip(planets) {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
     for (let i = 0; i < count; i++) {
       const a = rand() * Math.PI * 2;
-      const r = 36.4 + (rand() - 0.5) * 3.2;
+      const r = 39.6 + (rand() - 0.5) * 3.2; // between the 4th and 5th orbits
       v.set(Math.cos(a) * r, (rand() - 0.5) * 1.2, Math.sin(a) * r);
       e.set(rand() * 3, rand() * 3, rand() * 3);
       q.setFromEuler(e);
@@ -119,7 +119,7 @@ export function createShip(planets) {
   const items = planets.map((planet, i) => {
     const biome = BIOMES[planet.biome] || BIOMES.moon;
     const radius = 2.3 + (i % 3) * 0.4;
-    const orbit = 14 + i * 5.6;
+    const orbit = 15 + i * 6.2;
     const g = new THREE.Group();
 
     const maps = planetMaps(biome, i + 1);
@@ -178,7 +178,7 @@ export function createShip(planets) {
     scene.add(g);
     return {
       planet, index: i, group: g, body, clouds, pick, libRing, flag, moonlet, radius, orbit,
-      angle: i * 1.15 + 0.6,
+      angle: 0.4 + (i / planets.length) * Math.PI * 2, // evenly spread around the star
       speed: 0.03 / (1 + i * 0.35),
       spin: 0.12 + rand() * 0.15,
       liberated: false,
@@ -249,7 +249,7 @@ export function createShip(planets) {
   let selected = 0;
   let camAngle = 0.6;
   let camMode = 'overview';
-  const camPos = new THREE.Vector3(Math.sin(camAngle) * 104, 58, Math.cos(camAngle) * 104);
+  const camPos = new THREE.Vector3(Math.sin(camAngle) * 114, 64, Math.cos(camAngle) * 114);
   const camLook = new THREE.Vector3(0, -2, 0);
   const desiredPos = new THREE.Vector3();
   const desiredLook = new THREE.Vector3();
@@ -390,7 +390,7 @@ export function createShip(planets) {
       camAngle += dt * 0.04;
       // zoom out further on narrow viewports so the outer orbits stay in frame
       const zoom = Math.max(1, 1.45 / camera.aspect);
-      desiredPos.set(Math.sin(camAngle) * 104 * zoom, 58 * zoom, Math.cos(camAngle) * 104 * zoom);
+      desiredPos.set(Math.sin(camAngle) * 114 * zoom, 64 * zoom, Math.cos(camAngle) * 114 * zoom);
       desiredLook.set(0, -5, 0);
     }
     const holding = flight && flight.phase === 'hold';

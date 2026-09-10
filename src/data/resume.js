@@ -22,7 +22,7 @@ export const profile = {
   title: 'Full-Stack Software Developer',
   tagline: 'I take ambiguous problems from idea to production.',
   callsign: 'OB-01',
-  location: 'Hamilton, Ontario',
+  location: 'Greater Toronto Area, Ontario',
   // Armour colours (hex)
   armor: 0x3a3d45,
   armorDark: 0x1e2026,
@@ -64,7 +64,7 @@ export const planets = [
           {
             h: 'At a glance',
             bullets: [
-              'Based in Hamilton, Ontario, Canada',
+              'Based in the Greater Toronto Area (GTA), Ontario, Canada',
               'Software Developer at Bell Canada since May 2024',
               'Certified: GitOps Fundamentals (Argo) · Microsoft Azure Fundamentals',
               'Known for accessible, well-documented code and honest communication',
