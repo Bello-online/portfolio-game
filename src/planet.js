@@ -1,11 +1,14 @@
 import * as THREE from 'three';
+import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BIOMES } from './biomes.js';
 import { fbm, noise2, smoothstep, rng } from './noise.js';
 import { buildShipModel } from './shipmodel.js';
+import { terrainDetail, liquidMaps, softCircle, fogPatch, grassBlade, flareTextures } from './textures.js';
 
 export const PLAY_RADIUS = 62;
 const TERRAIN_SIZE = 260;
-const TERRAIN_SEGS = 170;
+const TERRAIN_SEGS = 190;
 export const DROP_HEIGHT = 190;
 
 function mat(color, extra = {}) {
@@ -30,17 +33,23 @@ function jitter(geo, amount, rand) {
 }
 
 // ---------- sky ----------
-function makeSky(top, bottom) {
-  const geo = new THREE.SphereGeometry(320, 24, 16);
+function makeSky(top, bottom, sunDir, sunColor) {
+  const geo = new THREE.SphereGeometry(320, 32, 20);
   const material = new THREE.ShaderMaterial({
-    uniforms: { top: { value: new THREE.Color(top) }, bottom: { value: new THREE.Color(bottom) } },
+    uniforms: {
+      top: { value: new THREE.Color(top) }, bottom: { value: new THREE.Color(bottom) },
+      sunDir: { value: sunDir.clone().normalize() }, sunColor: { value: new THREE.Color(sunColor) },
+    },
     vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `
-      uniform vec3 top; uniform vec3 bottom; varying vec3 vP;
+      uniform vec3 top; uniform vec3 bottom; uniform vec3 sunDir; uniform vec3 sunColor; varying vec3 vP;
       void main(){
-        float h = normalize(vP).y;
-        float k = smoothstep(-0.02, 0.5, h);
-        gl_FragColor = vec4(mix(bottom, top, k), 1.0);
+        vec3 d = normalize(vP);
+        float k = smoothstep(-0.02, 0.5, d.y);
+        vec3 c = mix(bottom, top, k);
+        float s = max(dot(d, sunDir), 0.0);
+        c += sunColor * (pow(s, 24.0) * 0.6 + pow(s, 3.0) * 0.12);   // halo around the sun
+        gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
@@ -135,15 +144,13 @@ function makeDeadTree(rand, h, color) {
   return g;
 }
 
-// abandoned hardware: containers, pipes, antenna masts
-function makeStructure(rand, accent) {
+function makeStructure(rand) {
   const g = new THREE.Group();
   const steel = mat(0x4a4e58, { metalness: 0.45, roughness: 0.55 });
   const dark = mat(0x22252c, { metalness: 0.3 });
   const stripe = mat(0xffd400);
   const kind = Math.floor(rand() * 3);
   if (kind === 0) {
-    // stacked containers
     const n = 1 + Math.floor(rand() * 2);
     for (let i = 0; i < n; i++) {
       const box = mesh(new THREE.BoxGeometry(3.2, 1.7, 1.7), i % 2 ? dark : steel, { x: (rand() - 0.5) * 0.6, y: 0.85 + i * 1.7, z: (rand() - 0.5) * 0.6 });
@@ -152,16 +159,13 @@ function makeStructure(rand, accent) {
       g.add(box);
     }
   } else if (kind === 1) {
-    // pipe run on supports
     const len = 6 + rand() * 6;
     const pipe = mesh(new THREE.CylinderGeometry(0.35, 0.35, len, 8), steel, { y: 1.1 });
     pipe.rotation.z = Math.PI / 2;
     g.add(pipe);
     for (let i = -1; i <= 1; i++) g.add(mesh(new THREE.BoxGeometry(0.4, 1.1, 0.6), dark, { x: i * len * 0.4, y: 0.55 }));
-    const valve = mesh(new THREE.TorusGeometry(0.45, 0.06, 6, 16), stripe, { y: 1.75 });
-    g.add(valve);
+    g.add(mesh(new THREE.TorusGeometry(0.45, 0.06, 6, 16), stripe, { y: 1.75 }));
   } else {
-    // antenna mast
     const h = 8 + rand() * 6;
     g.add(mesh(new THREE.CylinderGeometry(0.12, 0.35, h, 6), steel, { y: h / 2 }));
     g.add(mesh(new THREE.BoxGeometry(1.6, 0.9, 1.6), dark, { y: 0.45 }));
@@ -178,7 +182,7 @@ function makeStructure(rand, accent) {
   return g;
 }
 
-// ---------- terminal (objective) ----------
+// ---------- terminal ----------
 function makeTerminal(accent) {
   const g = new THREE.Group();
   const dark = mat(0x1c1e24, { metalness: 0.3, roughness: 0.6 });
@@ -191,14 +195,11 @@ function makeTerminal(accent) {
   g.add(screen);
   g.add(mesh(new THREE.BoxGeometry(1.3, 0.08, 0.5), steel, { y: 1.2, z: 0.55 }));
   g.add(mesh(new THREE.BoxGeometry(1.52, 0.18, 0.92), mat(0xffd400, { emissive: 0xffd400, emissiveIntensity: 0.2 }), { y: 0.42 }));
-  // cable + junction
   g.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.4, 5), dark, { x: 0.9, y: 0.1, z: -0.5 }).rotateZ(Math.PI / 2));
   g.add(mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), steel, { x: 1.7, y: 0.25, z: -0.5 }));
-  // hologram above the console
   const holoMat = new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, wireframe: true });
   const holo = mesh(new THREE.OctahedronGeometry(0.45, 1), holoMat, { y: 2.6, cast: false, receive: false });
   g.add(holo);
-  // antenna + beacon light
   g.add(mesh(new THREE.CylinderGeometry(0.05, 0.07, 3.2, 6), steel, { x: -0.6, y: 2.6, z: -0.35 }));
   const lampMat = new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 2 });
   g.add(mesh(new THREE.SphereGeometry(0.16, 8, 6), lampMat, { x: -0.6, y: 4.25, z: -0.35, cast: false }));
@@ -214,7 +215,7 @@ function makeTerminal(accent) {
   return { group: g, screenMat, lampMat, beamMat, ringMat, holoMat, holo, light, ring };
 }
 
-// ---------- extraction beacon ----------
+// ---------- beacon ----------
 function makeBeacon() {
   const g = new THREE.Group();
   const col = 0x9fdcff;
@@ -247,7 +248,6 @@ function makePod() {
   g.add(mesh(new THREE.ConeGeometry(1.0, 1.4, 12), hull, { y: 4.3 }));
   g.add(mesh(new THREE.TorusGeometry(1.03, 0.07, 6, 28), yellow, { y: 3.0 }).rotateX(Math.PI / 2));
   g.add(mesh(new THREE.TorusGeometry(1.1, 0.07, 6, 28), yellow, { y: 0.6 }).rotateX(Math.PI / 2));
-  // panel lines
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2 + 0.3;
     const p = mesh(new THREE.BoxGeometry(0.28, 1.6, 0.06), panel, { x: Math.cos(a) * 1.04, y: 1.9, z: Math.sin(a) * 1.04 });
@@ -259,8 +259,7 @@ function makePod() {
     const fin = mesh(new THREE.BoxGeometry(0.12, 1.4, 0.9), hull, { x: Math.cos(a) * 1.3, y: 0.9, z: Math.sin(a) * 1.3 });
     fin.rotation.y = -a + Math.PI / 2;
     g.add(fin);
-    const nozzle = mesh(new THREE.CylinderGeometry(0.16, 0.24, 0.4, 8), panel, { x: Math.cos(a) * 0.6, y: 0.1, z: Math.sin(a) * 0.6 });
-    g.add(nozzle);
+    g.add(mesh(new THREE.CylinderGeometry(0.16, 0.24, 0.4, 8), panel, { x: Math.cos(a) * 0.6, y: 0.1, z: Math.sin(a) * 0.6 }));
   }
   const doorGeo = new THREE.BoxGeometry(1.2, 2.5, 0.14);
   doorGeo.translate(0, 1.25, 0);
@@ -331,6 +330,131 @@ function makeBurst(color) {
   };
 }
 
+// ---------- weather ----------
+const WEATHER = {
+  snow:   { count: 2600, color: 0xffffff, size: 0.28, vy: -3.0, drift: 1.2, opacity: 0.8, additive: false },
+  embers: { count: 1400, color: 0xff8a3a, size: 0.22, vy: 1.6, drift: 0.8, opacity: 0.9, additive: true },
+  spores: { count: 1800, color: 0xbfffa0, size: 0.24, vy: 0.4, drift: 0.5, opacity: 0.7, additive: true },
+  dust:   { count: 2200, color: 0xffe0b0, size: 0.16, vy: -0.3, drift: 6.0, opacity: 0.45, additive: false },
+  motes:  { count: 1600, color: 0xd8b8ff, size: 0.2, vy: 0.6, drift: 0.4, opacity: 0.8, additive: true },
+};
+function makeWeather(kind, rand, tex) {
+  const cfg = WEATHER[kind];
+  if (!cfg) return null;
+  const n = cfg.count;
+  const pos = new Float32Array(n * 3);
+  const seedArr = new Float32Array(n);
+  const BOX = 110, H = 40;
+  for (let i = 0; i < n; i++) {
+    pos[i * 3] = (rand() - 0.5) * BOX;
+    pos[i * 3 + 1] = rand() * H;
+    pos[i * 3 + 2] = (rand() - 0.5) * BOX;
+    seedArr[i] = rand() * Math.PI * 2;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const material = new THREE.PointsMaterial({
+    color: cfg.color, size: cfg.size, map: tex, transparent: true, opacity: cfg.opacity, depthWrite: false,
+    blending: cfg.additive ? THREE.AdditiveBlending : THREE.NormalBlending, sizeAttenuation: true,
+  });
+  const pts = new THREE.Points(geo, material);
+  pts.frustumCulled = false;
+  const center = new THREE.Vector3();
+  return {
+    pts,
+    update(dt, t, focus) {
+      center.copy(focus);
+      for (let i = 0; i < n; i++) {
+        let x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
+        const s = seedArr[i];
+        x += (Math.sin(t * 0.7 + s) * cfg.drift + cfg.drift * 0.4) * dt;
+        z += Math.cos(t * 0.5 + s * 1.3) * cfg.drift * 0.5 * dt;
+        y += (cfg.vy + Math.sin(t + s) * 0.3) * dt;
+        // wrap around the focus point so the field always surrounds the player
+        if (x - center.x > BOX / 2) x -= BOX; else if (x - center.x < -BOX / 2) x += BOX;
+        if (z - center.z > BOX / 2) z -= BOX; else if (z - center.z < -BOX / 2) z += BOX;
+        if (y < center.y) y += H; else if (y > center.y + H) y -= H;
+        pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
+      }
+      geo.attributes.position.needsUpdate = true;
+    },
+  };
+}
+
+// ---------- ground fog cards ----------
+function makeFogCards(rand, color, tex, heightAt) {
+  const group = new THREE.Group();
+  const cards = [];
+  const material = new THREE.MeshBasicMaterial({ map: tex, color, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
+  for (let i = 0; i < 16; i++) {
+    const s = 28 + rand() * 30;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(s, s), material);
+    m.rotation.x = -Math.PI / 2;
+    const a = rand() * Math.PI * 2, d = rand() * (PLAY_RADIUS + 10);
+    const x = Math.cos(a) * d, z = Math.sin(a) * d;
+    m.position.set(x, heightAt(x, z) + 0.6 + rand() * 1.4, z);
+    m.rotation.z = rand() * Math.PI * 2;
+    m.userData.spin = (rand() - 0.5) * 0.06;
+    m.userData.vx = 0.4 + rand() * 0.5;
+    group.add(m);
+    cards.push(m);
+  }
+  return {
+    group,
+    update(dt, t) {
+      for (const c of cards) {
+        c.rotation.z += c.userData.spin * dt;
+        c.position.x += c.userData.vx * dt;
+        if (c.position.x > PLAY_RADIUS + 20) c.position.x = -PLAY_RADIUS - 20;
+        c.material.opacity = 0.26 + Math.sin(t * 0.3 + c.position.z) * 0.06;
+      }
+    },
+  };
+}
+
+// ---------- grass (instanced, wind in the vertex shader) ----------
+function makeGrass(rand, heightAt, clearOf, tex, liquidLevel) {
+  const blade = new THREE.PlaneGeometry(0.9, 1.6, 1, 3);
+  blade.translate(0, 0.8, 0);
+  const cross = blade.clone().rotateY(Math.PI / 2);
+  const geo = mergeGeometries([blade, cross]);
+  const material = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 1, color: 0xffffff });
+  let shaderRef = null;
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = { value: 0 };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uTime;')
+      .replace('#include <begin_vertex>', `
+        #include <begin_vertex>
+        #ifdef USE_INSTANCING
+          float ph = instanceMatrix[3].x * 0.35 + instanceMatrix[3].z * 0.5;
+          float sway = (sin(uTime * 1.6 + ph) + sin(uTime * 2.7 + ph * 1.7) * 0.4) * 0.22 * uv.y * uv.y;
+          transformed.x += sway; transformed.z += sway * 0.6;
+        #endif`);
+    shaderRef = shader;
+  };
+  const count = 3200;
+  const im = new THREE.InstancedMesh(geo, material, count);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+  let placed = 0;
+  for (let tries = 0; tries < count * 3 && placed < count; tries++) {
+    const ang = rand() * Math.PI * 2, d = 2 + rand() * (PLAY_RADIUS + 4);
+    const x = Math.cos(ang) * d, z = Math.sin(ang) * d;
+    const y = heightAt(x, z);
+    if (!clearOf(x, z, -3) || y < liquidLevel + 0.4) continue;
+    v.set(x, y - 0.05, z);
+    e.set(0, rand() * Math.PI, 0);
+    q.setFromEuler(e);
+    const k = 0.7 + rand() * 0.9;
+    sc.set(k, k * (0.8 + rand() * 0.8), k);
+    m4.compose(v, q, sc);
+    im.setMatrixAt(placed++, m4);
+  }
+  im.count = placed;
+  im.receiveShadow = true;
+  return { mesh: im, update(t) { if (shaderRef) shaderRef.uniforms.uTime.value = t; } };
+}
+
 // =====================================================================
 export function createPlanet(planet) {
   const biome = BIOMES[planet.biome] || BIOMES.moon;
@@ -338,26 +462,39 @@ export function createPlanet(planet) {
   const rand = rng(seedBase);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(biome.sky);
-  scene.fog = new THREE.Fog(biome.fog, 34, 150);
+  scene.fog = new THREE.Fog(biome.fog, 36, 155);
+  const liquid = biome.liquid || null;
+  const liquidLevel = liquid ? liquid.level : -999;
 
   // --- lights ---
   scene.add(new THREE.HemisphereLight(biome.hemiSky, biome.hemiGround, biome.hemi));
+  const sunDir = new THREE.Vector3(30, 50, 20).normalize();
   const sun = new THREE.DirectionalLight(biome.sun, biome.sunIntensity);
-  sun.position.set(30, 50, 20);
+  sun.position.copy(sunDir).multiplyScalar(60);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(4096, 4096);
   const s = 55;
   sun.shadow.camera.left = -s; sun.shadow.camera.right = s; sun.shadow.camera.top = s; sun.shadow.camera.bottom = -s;
   sun.shadow.camera.near = 5; sun.shadow.camera.far = 200;
-  sun.shadow.bias = -0.0008;
+  sun.shadow.bias = -0.0006;
+  sun.shadow.normalBias = 0.02;
   scene.add(sun, sun.target);
-  const rim = new THREE.DirectionalLight(biome.fill, 0.8); // cool rim from the far side for depth
+  const rim = new THREE.DirectionalLight(biome.fill, 0.8);
   rim.position.set(-40, 25, -50);
   scene.add(rim);
 
-  // --- sky, stars, moon, orbiting vessel ---
+  // --- sky, stars, sun + flare, moon, orbiting vessel (all follow the camera) ---
   const skyGroup = new THREE.Group();
-  skyGroup.add(makeSky(biome.sky, biome.fog), makeStars(rand));
+  skyGroup.add(makeSky(biome.sky, biome.fog, sunDir, biome.sun), makeStars(rand));
+  const flareTex = flareTextures();
+  const flare = new Lensflare();
+  const sunCol = new THREE.Color(biome.sun);
+  flare.addElement(new LensflareElement(flareTex.core, 520, 0, sunCol));
+  flare.addElement(new LensflareElement(flareTex.ring, 90, 0.35, sunCol));
+  flare.addElement(new LensflareElement(flareTex.ring, 140, 0.6, new THREE.Color(0xffd400)));
+  flare.addElement(new LensflareElement(flareTex.core, 60, 0.85, sunCol));
+  flare.position.copy(sunDir).multiplyScalar(290);
+  skyGroup.add(flare);
   const moon = new THREE.Mesh(new THREE.IcosahedronGeometry(26, 3), new THREE.MeshStandardMaterial({ color: biome.moon, roughness: 1, flatShading: true, fog: false }));
   moon.position.set(-150, 95, -210);
   skyGroup.add(moon);
@@ -410,9 +547,9 @@ export function createPlanet(planet) {
     h += smoothstep(PLAY_RADIUS - 3, PLAY_RADIUS + 22, d0) * 40;
     return h;
   }
-  const isWalkable = (x, z) => Math.hypot(x, z) < PLAY_RADIUS - 1.5;
+  const isWalkable = (x, z) => Math.hypot(x, z) < PLAY_RADIUS - 1.5 && heightAt(x, z) > liquidLevel + 0.35;
 
-  // --- terrain ---
+  // --- terrain (smooth shaded, vertex colours × procedural detail + normal map) ---
   {
     const geo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEGS, TERRAIN_SEGS);
     geo.rotateX(-Math.PI / 2);
@@ -427,15 +564,44 @@ export function createPlanet(planet) {
       const nn = fbm(x * 0.07 + 90, z * 0.07 + 40, 3);
       c.copy(g).lerp(a, smoothstep(0.4, 0.68, nn));
       c.lerp(rock, smoothstep(1.2, 3.2, slope));
-      const shade = Math.min(1.25, Math.max(0.5, 0.85 + y * 0.03));
+      if (liquid) c.lerp(rock, smoothstep(liquidLevel + 1.5, liquidLevel, y) * 0.6); // wet shoreline
+      const shade = Math.min(1.3, Math.max(0.5, 0.9 + y * 0.03));
       c.multiplyScalar(shade);
       colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
-    const terrain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0 }));
+    const detail = terrainDetail(seed, 42);
+    const terrain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+      vertexColors: true, map: detail.map, normalMap: detail.normalMap, normalScale: new THREE.Vector2(0.9, 0.9),
+      roughness: 0.95, metalness: 0,
+    }));
     terrain.receiveShadow = true;
     scene.add(terrain);
+  }
+
+  // --- liquid (water / lava) ---
+  let liquidMat = null;
+  if (liquid) {
+    const maps = liquidMaps(seed + 3, 14);
+    liquidMat = new THREE.MeshStandardMaterial({
+      color: liquid.color, transparent: !liquid.lava, opacity: liquid.lava ? 1 : 0.86,
+      roughness: liquid.lava ? 0.7 : 0.12, metalness: liquid.lava ? 0 : 0.25,
+      normalMap: maps.normalMap, normalScale: new THREE.Vector2(liquid.lava ? 0.6 : 0.4, liquid.lava ? 0.6 : 0.4),
+      emissive: liquid.lava ? 0xff4a00 : liquid.glow ? liquid.color : 0x000000,
+      emissiveMap: liquid.lava || liquid.glow ? maps.emissiveMap : null,
+      emissiveIntensity: liquid.lava ? 2.2 : liquid.glow ? 0.8 : 0,
+    });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE), liquidMat);
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.y = liquidLevel;
+    plane.receiveShadow = true;
+    scene.add(plane);
+    if (liquid.lava) {
+      const glowLight = new THREE.PointLight(0xff5a10, 30, 60, 2);
+      glowLight.position.set(0, liquidLevel + 2, 0);
+      scene.add(glowLight);
+    }
   }
 
   // --- props ---
@@ -443,14 +609,16 @@ export function createPlanet(planet) {
     for (const an of anchors) if (Math.hypot(x - an.x, z - an.z) < an.r + extra) return false;
     return Math.hypot(x, z) < PLAY_RADIUS + 24;
   };
-  const place = (count, factory, { minR = 9, maxR = PLAY_RADIUS + 20 } = {}) => {
+  const place = (count, factory, { minR = 9, maxR = PLAY_RADIUS + 20, dry = true } = {}) => {
     for (let i = 0; i < count; i++) {
       const ang = rand() * Math.PI * 2;
       const d = minR + rand() * (maxR - minR);
       const x = Math.cos(ang) * d, z = Math.sin(ang) * d;
       if (!clearOf(x, z, 1.5)) continue;
+      const y = heightAt(x, z);
+      if (dry && y < liquidLevel + 0.3) continue;
       const obj = factory();
-      obj.position.set(x, heightAt(x, z), z);
+      obj.position.set(x, y, z);
       obj.rotation.y = rand() * Math.PI * 2;
       scene.add(obj);
     }
@@ -464,14 +632,14 @@ export function createPlanet(planet) {
   const blinkers = [];
   if (p.structures) {
     place(p.structures, () => {
-      const st = makeStructure(rand, biome.accent);
+      const st = makeStructure(rand);
       st.traverse((o) => { if (o.name === 'blink') blinkers.push(o); });
       return st;
     }, { minR: 12, maxR: PLAY_RADIUS - 4 });
   }
-  place(20, () => makeSpire(rand, 20 + rand() * 24, new THREE.Color(biome.ground).multiplyScalar(0.6).getHex()), { minR: PLAY_RADIUS + 2, maxR: PLAY_RADIUS + 26 });
+  place(20, () => makeSpire(rand, 20 + rand() * 24, new THREE.Color(biome.ground).multiplyScalar(0.6).getHex()), { minR: PLAY_RADIUS + 2, maxR: PLAY_RADIUS + 26, dry: false });
 
-  // ground scatter (instanced): pebbles / shards / tufts
+  // ground scatter (instanced)
   {
     const scatterGeo = biome.scatter === 'tufts' ? new THREE.ConeGeometry(0.16, 0.9, 4)
       : biome.scatter === 'shards' ? new THREE.TetrahedronGeometry(0.35, 0)
@@ -486,8 +654,10 @@ export function createPlanet(planet) {
       const ang = rand() * Math.PI * 2;
       const d = 3 + rand() * (PLAY_RADIUS + 6);
       const x = Math.cos(ang) * d, z = Math.sin(ang) * d;
+      const y = heightAt(x, z);
+      if (y < liquidLevel + 0.3) continue;
       const yOff = biome.scatter === 'tufts' ? 0.4 : 0.1;
-      v.set(x, heightAt(x, z) + yOff, z);
+      v.set(x, y + yOff, z);
       e.set(biome.scatter === 'tufts' ? 0 : rand() * 3, rand() * Math.PI * 2, biome.scatter === 'tufts' ? (rand() - 0.5) * 0.4 : rand() * 3);
       q.setFromEuler(e);
       const k = 0.6 + rand() * 1.2;
@@ -501,19 +671,19 @@ export function createPlanet(planet) {
     scene.add(im);
   }
 
-  // --- ambient dust ---
-  const dustN = 600;
-  const dustPos = new Float32Array(dustN * 3);
-  for (let i = 0; i < dustN; i++) {
-    dustPos[i * 3] = (rand() - 0.5) * 150;
-    dustPos[i * 3 + 1] = 0.3 + rand() * 14;
-    dustPos[i * 3 + 2] = (rand() - 0.5) * 150;
+  // grass
+  let grass = null;
+  if (biome.grass) {
+    grass = makeGrass(rand, heightAt, clearOf, grassBlade(), liquidLevel);
+    scene.add(grass.mesh);
   }
-  const dustGeo = new THREE.BufferGeometry();
-  dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
-  const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: biome.dust, size: 0.09, transparent: true, opacity: 0.35, depthWrite: false }));
-  dust.frustumCulled = false;
-  scene.add(dust);
+
+  // weather + fog
+  const particleTex = softCircle();
+  const weather = makeWeather(biome.weather, rand, particleTex);
+  if (weather) scene.add(weather.pts);
+  const fog = makeFogCards(rand, biome.fog, fogPatch(seed), heightAt);
+  scene.add(fog.group);
 
   // --- terminals ---
   const terminals = planet.objectives.map((objective, i) => {
@@ -574,6 +744,7 @@ export function createPlanet(planet) {
   }
 
   const FALL = 2.6;
+  const focus = new THREE.Vector3();
   function update(dt, t, camera, playerPos) {
     skyGroup.position.copy(camera.position);
     orbiter.update(t);
@@ -581,12 +752,15 @@ export function createPlanet(planet) {
     burst.update(dt);
     shake = Math.max(0, shake - dt * 2.2);
 
-    for (let i = 0; i < dustN; i++) {
-      dustPos[i * 3] += dt * 0.6;
-      dustPos[i * 3 + 1] += Math.sin(t + i) * dt * 0.15;
-      if (dustPos[i * 3] > 75) dustPos[i * 3] = -75;
+    focus.copy(playerPos || spawn);
+    focus.y = Math.max(focus.y, heightAt(focus.x, focus.z)) - 6;
+    if (weather) weather.update(dt, t, focus);
+    fog.update(dt, t);
+    if (grass) grass.update(t);
+    if (liquidMat) {
+      liquidMat.normalMap.offset.set(t * 0.012, t * 0.008);
+      if (liquidMat.emissiveMap) liquidMat.emissiveMap.offset.set(-t * 0.006, t * 0.004);
     }
-    dustGeo.attributes.position.needsUpdate = true;
     for (const b of blinkers) b.visible = Math.sin(t * 3 + b.position.y) > 0;
 
     for (const term of terminals) {
@@ -639,7 +813,7 @@ export function createPlanet(planet) {
     }
 
     if (playerPos) {
-      sun.position.set(playerPos.x + 30, playerPos.y + 50, playerPos.z + 20);
+      sun.position.copy(sunDir).multiplyScalar(60).add(playerPos);
       sun.target.position.copy(playerPos);
     }
   }
@@ -649,7 +823,10 @@ export function createPlanet(planet) {
       if (o.geometry) o.geometry.dispose();
       if (o.material) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
-        mats.forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); });
+        mats.forEach((m) => {
+          for (const k of ['map', 'normalMap', 'emissiveMap', 'alphaMap']) if (m[k]) m[k].dispose();
+          m.dispose();
+        });
       }
     });
   }

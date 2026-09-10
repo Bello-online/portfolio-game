@@ -3,6 +3,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { makeGradePass } from './post.js';
 import { createShip } from './ship.js';
 import { createPlanet } from './planet.js';
 import { Player } from './player.js';
@@ -40,12 +42,19 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
+// Post stack: render → bloom → tone-map → SMAA → grade. (SMAA rather than an MSAA
+// target because the Lensflare addon copies from the framebuffer, which a
+// multisampled target does not allow.)
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
-const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.55, 0.82);
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.6, 0.88);
+const smaa = new SMAAPass(window.innerWidth, window.innerHeight);
+const grade = makeGradePass();
 composer.addPass(renderPass);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
+composer.addPass(smaa);
+composer.addPass(grade);
 
 // ---------- state ----------
 const state = {
@@ -314,6 +323,10 @@ function render() {
   const onSurface = state.surface && !['ship', 'intro', 'fly'].includes(state.mode);
   renderPass.scene = onSurface ? state.surface.scene : ship.scene;
   renderPass.camera = onSurface ? surfaceCamera : ship.camera;
+  grade.uniforms.time.value = clock.elapsedTime;
+  // a touch more grain/vignette on the surface, cleaner on the map
+  grade.uniforms.vignette.value = onSurface ? 0.6 : 0.45;
+  grade.uniforms.grain.value = onSurface ? 0.05 : 0.03;
   composer.render();
 }
 

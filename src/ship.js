@@ -1,10 +1,15 @@
 import * as THREE from 'three';
+import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
 import { BIOMES } from './biomes.js';
-import { rng, fbm } from './noise.js';
+import { rng } from './noise.js';
 import { buildShipModel } from './shipmodel.js';
+import { planetMaps, cloudMap, starMap, flareTextures, softCircle } from './textures.js';
 
 const easeInOut = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 const easeIn = (k) => k * k * k;
+
+// flight timing (seconds)
+const CRUISE = 2.6, ORBIT = 1.1, POD = 1.4;
 
 /**
  * The campaign map: planets orbit a star, the deployment vessel flies between
@@ -37,7 +42,6 @@ export function createShip(planets) {
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 1.7, vertexColors: true, sizeAttenuation: false, transparent: true, opacity: 0.9 })));
   }
-  // nebulae
   [[0x3a5fd9, -260, 80, -300, 420], [0x8a3fd9, 300, -40, -220, 360], [0xd94f8a, -120, -120, 320, 300], [0x2fb5a8, 260, 140, 260, 280]].forEach(([c, x, y, z, s]) => {
     const sp = makeGlowSprite(c, 0.55);
     sp.position.set(x, y, z);
@@ -45,8 +49,21 @@ export function createShip(planets) {
     sp.material.opacity = 0.22;
     scene.add(sp);
   });
+  // near-field space dust for parallax during flight
+  const dustTex = softCircle();
+  {
+    const n = 1600;
+    const pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      pos[i * 3] = (rand() - 0.5) * 140;
+      pos[i * 3 + 1] = (rand() - 0.5) * 50;
+      pos[i * 3 + 2] = (rand() - 0.5) * 140;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9fb8d8, size: 0.35, map: dustTex, transparent: true, opacity: 0.5, depthWrite: false })));
+  }
 
-  // hologram table grid
   const grid = new THREE.GridHelper(260, 52, 0x1c4a6b, 0x0f2a3f);
   grid.position.y = -1.2;
   grid.material.transparent = true;
@@ -54,20 +71,49 @@ export function createShip(planets) {
   scene.add(grid);
 
   // ---------------- star ----------------
-  const sun = new THREE.Mesh(new THREE.SphereGeometry(3.6, 32, 24), new THREE.MeshBasicMaterial({ color: 0xfff1c8 }));
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(3.6, 48, 32), new THREE.MeshBasicMaterial({ map: starMap(3) }));
   scene.add(sun);
   const corona = makeGlowSprite(0xffb347);
-  corona.scale.set(18, 18, 1);
+  corona.scale.set(12, 12, 1);
   scene.add(corona);
   const corona2 = makeGlowSprite(0xffe8a0);
-  corona2.scale.set(11, 11, 1);
+  corona2.scale.set(8, 8, 1);
   scene.add(corona2);
-  const sunLight = new THREE.PointLight(0xffe0b0, 2600, 0, 2);
+  const flareTex = flareTextures();
+  const flare = new Lensflare();
+  flare.addElement(new LensflareElement(flareTex.core, 300, 0, new THREE.Color(0xffe0b0)));
+  flare.addElement(new LensflareElement(flareTex.ring, 70, 0.3, new THREE.Color(0xffd400)));
+  flare.addElement(new LensflareElement(flareTex.ring, 120, 0.55, new THREE.Color(0xff9a5a)));
+  flare.addElement(new LensflareElement(flareTex.core, 50, 0.8, new THREE.Color(0x9fe8ff)));
+  scene.add(flare);
+  const sunLight = new THREE.PointLight(0xffe0b0, 1100, 0, 2);
   scene.add(sunLight);
-  scene.add(new THREE.AmbientLight(0x3d4c66, 0.7));
+  scene.add(new THREE.AmbientLight(0x4a5a78, 1.1));
   const fill = new THREE.DirectionalLight(0x5f7fbf, 0.7);
   fill.position.set(-30, 40, 20);
   scene.add(fill);
+
+  // ---------------- asteroid belt ----------------
+  const belt = new THREE.Group();
+  {
+    const count = 700;
+    const geo = new THREE.DodecahedronGeometry(0.35, 0);
+    const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0x8a8e98, roughness: 1, flatShading: true }), count);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+    for (let i = 0; i < count; i++) {
+      const a = rand() * Math.PI * 2;
+      const r = 36.4 + (rand() - 0.5) * 3.2;
+      v.set(Math.cos(a) * r, (rand() - 0.5) * 1.2, Math.sin(a) * r);
+      e.set(rand() * 3, rand() * 3, rand() * 3);
+      q.setFromEuler(e);
+      const k = 0.3 + rand() * rand() * 1.6;
+      sc.set(k, k * (0.6 + rand() * 0.8), k);
+      m4.compose(v, q, sc);
+      im.setMatrixAt(i, m4);
+    }
+    belt.add(im);
+    scene.add(belt);
+  }
 
   // ---------------- planets ----------------
   const items = planets.map((planet, i) => {
@@ -76,12 +122,27 @@ export function createShip(planets) {
     const orbit = 14 + i * 5.6;
     const g = new THREE.Group();
 
-    const body = makePlanetBody(radius, biome, rand, i);
+    const maps = planetMaps(biome, i + 1);
+    const body = new THREE.Mesh(
+      displaced(new THREE.SphereGeometry(radius, 96, 64), radius, i, rand),
+      new THREE.MeshStandardMaterial({ map: maps.map, normalMap: maps.normalMap, normalScale: new THREE.Vector2(0.8, 0.8), roughness: 0.9, metalness: 0 }),
+    );
+    if (biome.lava) { body.material.emissive = new THREE.Color(0xff3a00); body.material.emissiveIntensity = 0.1; }
+    if (biome.planetSea) { body.material.roughness = 0.6; body.material.metalness = 0.15; }
+    body.rotation.z = (rand() - 0.5) * 0.5;
     g.add(body);
-    const atmo = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.14, 32, 24), makeAtmosphereMaterial(biome.fog, 2.6));
-    g.add(atmo);
-    const atmo2 = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.3, 32, 24), makeAtmosphereMaterial(biome.fog, 5.0, 0.35));
-    g.add(atmo2);
+
+    let clouds = null;
+    if (biome.clouds) {
+      clouds = new THREE.Mesh(
+        new THREE.SphereGeometry(radius * 1.045, 48, 32),
+        new THREE.MeshStandardMaterial({ map: cloudMap(i + 7), transparent: true, opacity: biome.clouds, depthWrite: false, roughness: 1 }),
+      );
+      clouds.rotation.z = body.rotation.z;
+      g.add(clouds);
+    }
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(radius * 1.14, 48, 32), makeAtmosphereMaterial(biome.fog, 2.6)));
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(radius * 1.3, 48, 32), makeAtmosphereMaterial(biome.fog, 5.0, 0.35)));
 
     if (biome.rings) g.add(makeRings(radius, rand));
     let moonlet = null;
@@ -116,7 +177,7 @@ export function createShip(planets) {
 
     scene.add(g);
     return {
-      planet, index: i, group: g, body, pick, libRing, flag, moonlet, radius, orbit,
+      planet, index: i, group: g, body, clouds, pick, libRing, flag, moonlet, radius, orbit,
       angle: i * 1.15 + 0.6,
       speed: 0.03 / (1 + i * 0.35),
       spin: 0.12 + rand() * 0.15,
@@ -149,7 +210,6 @@ export function createShip(planets) {
   vessel.group.lookAt(0, 2.5, 0);
   scene.add(vessel.group);
 
-  // warp streaks (child of the vessel so they align with its heading)
   const streakCount = 90;
   const streakPos = new Float32Array(streakCount * 6);
   for (let i = 0; i < streakCount; i++) {
@@ -166,7 +226,7 @@ export function createShip(planets) {
   const streaks = new THREE.LineSegments(streakGeo, streakMat);
   vessel.group.add(streaks);
 
-  // drop pod used for the orbit → surface launch shot
+  // drop pod for the orbit → surface launch shot
   const pod = new THREE.Group();
   const podMat = new THREE.MeshStandardMaterial({ color: 0x2b2e36, metalness: 0.5, roughness: 0.5, flatShading: true });
   const podBody = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.8, 8), podMat);
@@ -188,7 +248,7 @@ export function createShip(planets) {
   // ---------------- camera + flight state ----------------
   let selected = 0;
   let camAngle = 0.6;
-  let camMode = 'overview'; // overview | chase
+  let camMode = 'overview';
   const camPos = new THREE.Vector3(Math.sin(camAngle) * 58, 32, Math.cos(camAngle) * 58);
   const camLook = new THREE.Vector3(0, -2, 0);
   const desiredPos = new THREE.Vector3();
@@ -203,17 +263,15 @@ export function createShip(planets) {
     return it.group.getWorldPosition(planetWorld);
   }
 
-  /** Fly the vessel to a planet, then launch the pod. cb() fires when the pod enters the atmosphere. */
   function startFlight(index, cb) {
     const it = items[index];
     scene.attach(vessel.group);
-    flight = { phase: 'fly', t: 0, D: 3.2, from: vessel.group.position.clone(), target: it, cb };
+    flight = { phase: 'fly', t: 0, D: CRUISE, from: vessel.group.position.clone(), target: it, cb };
     freezeOrbits = true;
     camMode = 'chase';
     vessel.setThrottle(1);
   }
 
-  /** Return the camera to the map overview (after extraction / abort). */
   function showOverview() {
     flight = null;
     pod.visible = false;
@@ -224,9 +282,9 @@ export function createShip(planets) {
   }
 
   function arrivalPoint(it, out) {
-    // park on the side facing away from the star so the planet is backlit in the hero shot
+    // park on the star-facing side: the camera looks at a front-lit planet with the star behind it
     const p = worldPos(it);
-    tmp2.copy(p).setY(0).normalize();
+    tmp2.copy(p).setY(0).normalize().negate();
     return out.copy(p).addScaledVector(tmp2, it.radius * 3.6).add(tmp3.set(0, it.radius * 0.8, 0));
   }
 
@@ -235,16 +293,18 @@ export function createShip(planets) {
     for (const it of items) {
       it.group.position.set(Math.cos(it.angle) * it.orbit, 0, Math.sin(it.angle) * it.orbit);
       it.body.rotation.y += it.spin * dt;
+      if (it.clouds) it.clouds.rotation.y += it.spin * 1.35 * dt;
       if (it.moonlet) {
         it.moonlet.position.set(Math.cos(t * 0.9 + it.index) * it.radius * 1.9, Math.sin(t * 0.9) * 0.5, Math.sin(t * 0.9 + it.index) * it.radius * 1.9);
       }
       if (it.flag.visible) it.flag.rotation.y = t * 0.8;
     }
+    belt.rotation.y = t * 0.012;
+    sun.rotation.y = t * 0.05;
     vessel.update(t);
     corona.material.rotation = t * 0.05;
     corona2.material.rotation = -t * 0.08;
 
-    // selection reticle
     const sel = items[selected];
     const selPos = worldPos(sel);
     reticle.position.copy(selPos);
@@ -257,7 +317,6 @@ export function createShip(planets) {
     linkGeo.attributes.position.needsUpdate = true;
     link.computeLineDistances();
 
-    // ---- flight ----
     if (flight) {
       flight.t += dt;
       const it = flight.target;
@@ -270,34 +329,30 @@ export function createShip(planets) {
         const pos = vessel.group.position;
         pos.lerpVectors(flight.from, to, e);
         pos.y += lift;
-        // face the travel direction (sample a little ahead on the path)
         const e2 = easeInOut(Math.min(1, k + 0.02));
         tmp2.lerpVectors(flight.from, to, e2);
         tmp2.y += Math.sin(Math.min(1, k + 0.02) * Math.PI) * 7;
         if (tmp2.distanceToSquared(pos) > 1e-4) vessel.group.lookAt(tmp2);
-        vessel.group.rotateZ(Math.sin(k * Math.PI) * 0.25); // bank
+        vessel.group.rotateZ(Math.sin(k * Math.PI) * 0.25);
         const warp = Math.sin(k * Math.PI);
         streakMat.opacity = warp * 0.8;
         streaks.scale.z = 0.5 + warp * 1.5;
         vessel.setThrottle(0.6 + warp * 0.4);
-        // chase cam
         vessel.group.getWorldDirection(tmp3);
         desiredPos.copy(pos).addScaledVector(tmp3, -11).add(tmp2.set(0, 4.2, 0));
         desiredLook.copy(pos).addScaledVector(tmp3, 8);
-        // ease the look towards the planet as we arrive
         if (k > 0.75) desiredLook.lerp(pPos, (k - 0.75) / 0.25);
         if (k >= 1) {
           flight.phase = 'orbit';
           flight.t = 0;
           streakMat.opacity = 0;
           vessel.setThrottle(0.3);
-          it.group.attach(vessel.group); // park at the planet so it orbits with it
+          it.group.attach(vessel.group);
         }
       } else if (flight.phase === 'orbit') {
-        const k = Math.min(1, flight.t / 1.3);
+        const k = Math.min(1, flight.t / ORBIT);
         vessel.group.getWorldPosition(tmp);
         vessel.group.lookAt(pPos.x, tmp.y, pPos.z);
-        // side-on hero shot: vessel in the foreground, planet behind
         tmp3.subVectors(tmp, pPos).normalize();
         tmp2.crossVectors(tmp3, new THREE.Vector3(0, 1, 0)).normalize();
         desiredPos.copy(tmp).addScaledVector(tmp2, 15 - k * 3).add(new THREE.Vector3(0, 4.5, 0)).addScaledVector(tmp3, 4);
@@ -311,7 +366,7 @@ export function createShip(planets) {
           flight.podTo = pPos.clone().addScaledVector(tmp3, it.radius * 0.9);
         }
       } else if (flight.phase === 'pod') {
-        const k = Math.min(1, flight.t / 1.6);
+        const k = Math.min(1, flight.t / POD);
         const e = easeIn(k);
         pod.position.lerpVectors(flight.podFrom, flight.podTo, e);
         pod.lookAt(flight.podTo);
@@ -319,7 +374,6 @@ export function createShip(planets) {
         pod.scale.setScalar(0.9 + k * 0.6);
         podGlow.scale.setScalar(1.5 + e * 6);
         podFlame.scale.y = 1 + e * 3;
-        // ride alongside the pod, planet growing in frame
         tmp3.subVectors(flight.podFrom, pPos).normalize();
         tmp2.crossVectors(tmp3, new THREE.Vector3(0, 1, 0)).normalize();
         desiredPos.copy(pod.position).addScaledVector(tmp2, 4.5 + k * 2).addScaledVector(tmp3, 3 + k * 5).add(new THREE.Vector3(0, 1.4, 0));
@@ -329,12 +383,9 @@ export function createShip(planets) {
           flight = { phase: 'hold', t: 0, target: it, cb: null };
           cb?.();
         }
-      } else if (flight.phase === 'hold') {
-        // freeze the last shot behind the fade
       }
     }
 
-    // ---- camera ----
     if (camMode === 'overview') {
       camAngle += dt * 0.04;
       desiredPos.set(Math.sin(camAngle) * 58, 32, Math.cos(camAngle) * 58);
@@ -395,38 +446,18 @@ export function createShip(planets) {
 }
 
 // ---------------------------------------------------------------- helpers
-function makePlanetBody(radius, biome, rand, seed) {
-  const geo = new THREE.IcosahedronGeometry(radius, 5);
+/** Gentle radial displacement so the silhouette isn't a perfect sphere (UVs stay intact). */
+function displaced(geo, radius, seed, rand) {
   const pos = geo.attributes.position;
-  const colors = new Float32Array(pos.count * 3);
-  const base = new THREE.Color(biome.planet), alt = new THREE.Color(biome.planetAlt), c = new THREE.Color();
-  const white = new THREE.Color(0xf4f8ff), lava = new THREE.Color(0xff5a1a);
   const v = new THREE.Vector3();
   for (let i = 0; i < pos.count; i++) {
     v.set(pos.getX(i), pos.getY(i), pos.getZ(i)).normalize();
-    const n = fbm(v.x * 2.6 + seed * 11, v.y * 2.6 + v.z * 2.1 + seed * 3, 4);
-    const ridged = 1 - Math.abs(n * 2 - 1);
-    const h = (n - 0.5) * 0.16 + (biome.craters ? -Math.pow(ridged, 6) * 0.08 : 0);
-    v.multiplyScalar(radius * (1 + h));
+    const n = Math.sin(v.x * 5 + seed) * Math.sin(v.y * 4 - seed) * Math.sin(v.z * 6 + seed * 2);
+    v.multiplyScalar(radius * (1 + n * 0.025));
     pos.setXYZ(i, v.x, v.y, v.z);
-    c.copy(base).lerp(alt, smooth(0.42, 0.62, n));
-    if (biome.caps && Math.abs(v.y / radius) > 0.72) c.lerp(white, smooth(0.72, 0.85, Math.abs(v.y / radius)));
-    if (biome.lava && n > 0.64) c.lerp(lava, smooth(0.64, 0.72, n));
-    c.multiplyScalar(0.8 + h * 2.2);
-    colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
   }
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true });
-  if (biome.lava) { material.emissive = new THREE.Color(0xff3a00); material.emissiveIntensity = 0.12; }
-  const m = new THREE.Mesh(geo, material);
-  m.rotation.z = (rand() - 0.5) * 0.5;
-  return m;
-}
-
-function smooth(a, b, x) {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
+  return geo;
 }
 
 function makeAtmosphereMaterial(color, power = 3, strength = 0.9) {
