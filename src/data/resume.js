@@ -376,7 +376,7 @@ export const planets = [
               { label: '✉ ' + EMAIL, href: `mailto:${EMAIL}` },
               { label: 'GitHub', href: GITHUB },
               { label: 'LinkedIn', href: LINKEDIN },
-              { label: 'Résumé (PDF)', href: '/Olaseni-Bello-Resume.pdf' },
+              { label: 'Résumé (PDF)', href: `${import.meta.env.BASE_URL}Olaseni-Bello-Resume.pdf` },
             ],
           },
         ],
