@@ -1,6 +1,16 @@
-# Portfolio Quest
+# Portfolio Campaign
 
-A game-like portfolio built with [three.js](https://threejs.org/) and Vite. Each section of the résumé is a floating low-poly island; walk the character across the bridges and press **E** to read that chapter.
+A game-like portfolio built with [three.js](https://threejs.org/) and Vite, styled after co-op planet-drop shooters: a holographic campaign map, a drop pod, dark planet surfaces, and arrow-code terminals that unlock each chapter of the résumé.
+
+## How it plays
+
+1. **Campaign map** — six planets orbit a star. Each one is a résumé section. Select with `◀ ▶` (or click) and press `ENTER` to deploy.
+2. **Drop** — a pod falls from orbit, hits the surface, and the door opens.
+3. **Surface** — walk (`WASD`, `SHIFT` to sprint) to the intel terminals marked on the compass and in the world. At a terminal, punch in its access code with the arrow keys.
+4. **Intel** — a correct code opens that section's content. `ESC` closes it.
+5. **Extract** — once every terminal is secured an extraction beacon appears. Enter its code to return to the ship and mark the planet liberated.
+
+Touch devices get a joystick and an action button that enters the code for you.
 
 ## Run it
 
@@ -13,40 +23,35 @@ Then open http://localhost:5180.
 
 ## Make it yours
 
-Everything shown in the game comes from one file: [`src/data/resume.js`](src/data/resume.js).
+Everything the game says comes from one file: [`src/data/resume.js`](src/data/resume.js).
 
-- `profile` — name, headline, tagline, and the character's colours.
-- `zones` — one entry per island. `title`, `landmark` (`house` · `office` · `rocket` · `crystal` · `books` · `mailbox`), `color`, the on-screen `prompt`, and `content` blocks.
-
-Content blocks are plain objects; use whichever fields you need:
+- `profile` — name, headline, location, and the trooper's armour colours.
+- `campaign` — title, vessel name, and the intro brief.
+- `planets` — one entry per planet: `name`, `designation`, `biome` (`ice` · `ash` · `dust` · `crystal` · `jungle` · `moon`), a short `brief`, and its `objectives`. Each objective becomes one terminal on the surface and holds an array of content `blocks`:
 
 ```js
 { h: 'Job title', sub: 'Company', meta: '2023 – now',
   p: 'Paragraph', bullets: ['…'], tags: ['React'], links: [{ label, href }] }
 ```
 
-Add or remove zones freely — the islands are laid out in a ring automatically.
-
-## Controls
-
-| Input | Action |
-| --- | --- |
-| `W A S D` / arrows | Move |
-| `E` / `Enter` / `Space` | Explore the island you're standing on |
-| `Esc` | Close the panel |
-| Click a quest-log entry | Fast travel |
-| Touch | Left joystick to move, `E` button to explore |
+Every field is optional. Add or remove planets and objectives freely — orbits, terminal placement and access codes are generated automatically (set `code: 'UDLR'` on an objective to pin one).
 
 ## Project layout
 
 ```
 src/
-  main.js       renderer, camera follow, game loop
-  world.js      islands, bridges, landmarks, walkability
-  player.js     blocky character + walk cycle
-  input.js      keyboard + touch joystick
-  ui.js         intro, HUD, quest log, section panel
-  data/resume.js  ← your content
+  main.js        state machine: intro → ship → drop → surface → extract
+  ship.js        campaign map (planets, orbits, selection reticle)
+  planet.js      surface: terrain, props, terminals, beacon, drop pod, effects
+  biomes.js      per-planet palettes and prop mixes
+  player.js      armoured trooper with cape + walk cycle
+  input.js       keyboard + touch joystick
+  ui.js          intro, HUD, compass, markers, code prompt, intel panel
+  audio.js       procedural sound cues (WebAudio, no assets)
+  noise.js       value noise / seeded RNG
+  data/resume.js ← your content
+public/
+  Olaseni-Bello-Resume.pdf   linked from the Contact planet
 ```
 
 ## Deploy

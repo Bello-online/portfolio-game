@@ -3,94 +3,132 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Portfolio Quest</title>
-    <meta name="description" content="An interactive, game-like portfolio. Walk around the islands to explore my experience, projects and skills." />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏝️</text></svg>" />
+    <title>Portfolio Campaign</title>
+    <meta name="description" content="An interactive, game-like portfolio. Deploy to six planets, secure the intel terminals, and read my résumé chapter by chapter." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='16' fill='%23111'/><text x='50' y='72' font-size='60' text-anchor='middle' fill='%23ffd400' font-family='Arial Black'>▼</text></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <canvas id="game"></canvas>
+    <div id="vignette"></div>
+    <div id="fade"></div>
 
-    <!-- Intro / title screen -->
-    <div id="intro" class="overlay">
-      <div class="intro-card">
-        <div class="intro-badge">PORTFOLIO QUEST</div>
+    <div id="banner" hidden>
+      <div class="banner-text" id="banner-text"></div>
+      <div class="banner-sub" id="banner-sub"></div>
+    </div>
+
+    <!-- ================= INTRO ================= -->
+    <div id="intro" class="screen">
+      <div class="card intro-card">
+        <div class="hazard"></div>
+        <div class="kicker" id="intro-kicker">PORTFOLIO CAMPAIGN</div>
         <h1 id="intro-name">Loading…</h1>
-        <p id="intro-title"></p>
-        <p class="intro-hint">
-          Walk across the bridges to visit each island.<br />
-          Each island is a chapter of my résumé.
-        </p>
+        <div class="intro-title" id="intro-title"></div>
+        <p class="intro-brief" id="intro-brief"></p>
         <div class="keys">
-          <div class="keycap-row">
-            <span class="keycap">W</span><span class="keycap">A</span><span class="keycap">S</span><span class="keycap">D</span>
-            <span class="key-label">move</span>
-          </div>
-          <div class="keycap-row">
-            <span class="keycap wide">E</span>
-            <span class="key-label">explore an island</span>
-          </div>
-          <div class="keycap-row">
-            <span class="keycap wide">Esc</span>
-            <span class="key-label">close</span>
-          </div>
+          <div class="keyrow"><span class="kc">W</span><span class="kc">A</span><span class="kc">S</span><span class="kc">D</span><span class="klabel">move</span></div>
+          <div class="keyrow"><span class="kc">SHIFT</span><span class="klabel">sprint</span></div>
+          <div class="keyrow"><span class="kc">▲</span><span class="kc">▼</span><span class="kc">◀</span><span class="kc">▶</span><span class="klabel">enter terminal codes · select planet</span></div>
+          <div class="keyrow"><span class="kc">ENTER</span><span class="klabel">deploy</span> <span class="kc">ESC</span><span class="klabel">close intel</span></div>
         </div>
-        <button id="start-btn" class="btn-primary">▶ Start</button>
-        <p class="intro-foot">Touch devices: drag the joystick to move, tap the button to explore.</p>
+        <button id="start-btn" class="btn-primary">BEGIN DEPLOYMENT</button>
+        <p class="intro-foot">Touch devices: joystick to move, tap the action button at a terminal.</p>
+        <div class="hazard"></div>
       </div>
     </div>
 
-    <!-- HUD -->
-    <div id="hud" hidden>
-      <div class="hud-top-left">
-        <div class="hud-avatar" id="hud-avatar">?</div>
+    <!-- ================= SHIP / CAMPAIGN MAP ================= -->
+    <div id="ship-ui" hidden>
+      <div class="chip top-left">
+        <div class="chip-avatar" id="ship-avatar"></div>
         <div>
-          <div class="hud-name" id="hud-name"></div>
-          <div class="hud-role" id="hud-title"></div>
+          <div class="chip-name" id="ship-name"></div>
+          <div class="chip-sub" id="ship-title"></div>
         </div>
       </div>
 
-      <div class="hud-top-right">
-        <div class="quest-title">QUEST LOG</div>
-        <ul id="quest-list"></ul>
-        <div class="quest-progress"><div id="quest-bar"></div></div>
-        <div class="quest-pct" id="quest-pct">0% explored</div>
+      <div class="top-center">
+        <div class="hud-label">CAMPAIGN MAP</div>
+        <div class="hud-sub" id="ship-vessel"></div>
       </div>
 
-      <div class="hud-bottom-left">
-        <span class="keycap sm">WASD</span> move &nbsp; <span class="keycap sm">E</span> explore &nbsp; <span class="keycap sm">click</span> quest log to fast travel
+      <div class="chip top-right campaign">
+        <div class="hud-label">CAMPAIGN PROGRESS</div>
+        <div class="bar"><div id="campaign-bar"></div></div>
+        <div class="hud-sub" id="campaign-text">0 / 6 planets liberated</div>
       </div>
 
-      <div id="prompt" class="prompt" hidden>
-        <span class="keycap">E</span> <span id="prompt-text"></span>
+      <div id="planet-labels"></div>
+
+      <aside id="planet-info">
+        <div class="pi-kicker" id="pi-sector"></div>
+        <h2 id="pi-name"></h2>
+        <div class="pi-designation" id="pi-designation"></div>
+        <p id="pi-brief"></p>
+        <dl class="pi-stats">
+          <dt>Biome</dt><dd id="pi-biome"></dd>
+          <dt>Terminals</dt><dd id="pi-objectives"></dd>
+          <dt>Status</dt><dd id="pi-status"></dd>
+        </dl>
+        <button id="deploy-btn" class="btn-primary">DEPLOY <span class="kc inv">ENTER</span></button>
+      </aside>
+
+      <div class="hint bottom-left"><span class="kc">◀ ▶</span> select planet &nbsp; <span class="kc">ENTER</span> deploy &nbsp; <span class="kc">click</span> a planet</div>
+    </div>
+
+    <!-- ================= PLANET SURFACE ================= -->
+    <div id="surface-ui" hidden>
+      <div id="compass">
+        <div class="compass-strip" id="compass-strip"></div>
+        <div class="compass-center"></div>
       </div>
 
-      <div id="zone-toast" class="zone-toast" hidden></div>
+      <div class="chip top-left mission">
+        <div class="hud-label" id="s-planet"></div>
+        <div class="hud-sub" id="s-mission"></div>
+      </div>
 
-      <!-- Touch controls -->
+      <div id="objectives">
+        <div class="hud-label">OBJECTIVES</div>
+        <ul id="objective-list"></ul>
+      </div>
+
+      <button id="abort-btn" class="btn-ghost">RETURN TO SHIP</button>
+
+      <div id="markers"></div>
+
+      <div id="prompt" hidden>
+        <div class="prompt-label" id="prompt-label"></div>
+        <div class="prompt-code" id="prompt-code"></div>
+        <div class="prompt-hint" id="prompt-hint">ENTER ACCESS CODE WITH THE ARROW KEYS</div>
+      </div>
+
+      <div class="hint bottom-left"><span class="kc">WASD</span> move &nbsp; <span class="kc">SHIFT</span> sprint &nbsp; <span class="kc">▲▼◀▶</span> terminal codes</div>
+
       <div id="joystick" class="joystick" hidden>
         <div class="joystick-base"><div class="joystick-knob"></div></div>
       </div>
-      <button id="action-btn" class="action-btn" hidden>E</button>
+      <button id="action-btn" class="action-btn" hidden>▶</button>
     </div>
 
-    <!-- Section panel -->
-    <div id="panel" class="overlay" hidden>
-      <div class="panel-card">
-        <div class="panel-header" id="panel-header">
+    <button id="mute-btn" class="icon-btn" hidden aria-label="Toggle sound">SND ON</button>
+
+    <!-- ================= INTEL PANEL ================= -->
+    <div id="intel" class="screen" hidden>
+      <div class="card intel-card">
+        <header class="intel-header">
           <div>
-            <div class="panel-kicker" id="panel-kicker"></div>
-            <h2 id="panel-title"></h2>
+            <div class="kicker" id="intel-kicker"></div>
+            <h2 id="intel-title"></h2>
           </div>
-          <button id="panel-close" class="btn-close" aria-label="Close">✕</button>
-        </div>
-        <div class="panel-body" id="panel-body"></div>
-        <div class="panel-footer">
-          <span class="keycap sm">Esc</span> back to the map
-        </div>
+          <button id="intel-close" class="btn-close" aria-label="Close">✕</button>
+        </header>
+        <div class="intel-body" id="intel-body"></div>
+        <footer class="intel-footer"><span class="kc">ESC</span> close and continue the mission</footer>
       </div>
     </div>
 

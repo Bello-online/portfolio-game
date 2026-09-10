@@ -1,31 +1,36 @@
 /**
- * Keyboard + touch joystick input.
- * `vector` is the desired move direction in world space (x, z), length 0..1.
- * The camera looks down -z from +z, so "up" on screen is -z.
+ * Keyboard + touch input.
+ *  - WASD moves (world space; the camera never rotates, so "up" is -z).
+ *  - Arrow keys are reserved for code input (stratagem-style) and planet selection.
+ *  - E / Enter / Space queue an "action"; Escape queues an "escape".
+ *  - Shift = sprint.
  */
+const ARROWS = { arrowup: 'up', arrowdown: 'down', arrowleft: 'left', arrowright: 'right' };
+
 export class Input {
   constructor({ joystickEl, actionBtn }) {
     this.keys = new Set();
     this.vector = { x: 0, z: 0 };
     this.actionQueued = false;
     this.escapeQueued = false;
-    this.enabled = false;
+    this.arrowQueue = [];
     this.isTouch = window.matchMedia('(pointer: coarse)').matches;
 
     window.addEventListener('keydown', (e) => {
-      if (e.repeat) return;
+      if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
       const k = e.key.toLowerCase();
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
-      this.keys.add(k);
+      if (ARROWS[k] || k === ' ') e.preventDefault();
+      if (e.repeat) return;
+      if (ARROWS[k]) this.arrowQueue.push(ARROWS[k]);
       if (k === 'e' || k === 'enter' || k === ' ') this.actionQueued = true;
       if (k === 'escape') this.escapeQueued = true;
+      this.keys.add(k);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
     window.addEventListener('blur', () => this.keys.clear());
 
     // ----- touch joystick -----
     this.joy = { active: false, id: null, cx: 0, cy: 0, x: 0, y: 0 };
-    this.joystickEl = joystickEl;
     this.knob = joystickEl.querySelector('.joystick-knob');
     const RADIUS = 46;
 
@@ -47,10 +52,7 @@ export class Input {
       let dx = t.clientX - this.joy.cx;
       let dy = t.clientY - this.joy.cy;
       const d = Math.hypot(dx, dy);
-      if (d > RADIUS) {
-        dx = (dx / d) * RADIUS;
-        dy = (dy / d) * RADIUS;
-      }
+      if (d > RADIUS) { dx = (dx / d) * RADIUS; dy = (dy / d) * RADIUS; }
       this.joy.x = dx / RADIUS;
       this.joy.y = dy / RADIUS;
       this.knob.style.transform = `translate(${dx}px, ${dy}px)`;
@@ -74,18 +76,28 @@ export class Input {
     actionBtn.addEventListener('click', () => { this.actionQueued = true; });
   }
 
+  get sprint() {
+    return this.keys.has('shift');
+  }
+
   update() {
     let x = 0, z = 0;
     const k = this.keys;
-    if (k.has('w') || k.has('arrowup')) z -= 1;
-    if (k.has('s') || k.has('arrowdown')) z += 1;
-    if (k.has('a') || k.has('arrowleft')) x -= 1;
-    if (k.has('d') || k.has('arrowright')) x += 1;
+    if (k.has('w')) z -= 1;
+    if (k.has('s')) z += 1;
+    if (k.has('a')) x -= 1;
+    if (k.has('d')) x += 1;
     const len = Math.hypot(x, z);
     if (len > 0) { x /= len; z /= len; }
     if (this.joy.active) { x = this.joy.x; z = this.joy.y; }
     this.vector.x = x;
     this.vector.z = z;
+  }
+
+  consumeArrows() {
+    const a = this.arrowQueue;
+    this.arrowQueue = [];
+    return a;
   }
 
   consumeAction() {
