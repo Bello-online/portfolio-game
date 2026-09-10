@@ -519,11 +519,11 @@ export function createPlanet(planet) {
   const slots = n + 1;
   const terminalPositions = planet.objectives.map((_, i) => {
     const a = base + (i / slots) * Math.PI * 2 + (rand() - 0.5) * 0.5;
-    const d = 24 + rand() * 14;
+    const d = 14 + rand() * 7; // close enough to see from the landing zone
     return new THREE.Vector3(Math.cos(a) * d, 0, Math.sin(a) * d);
   });
   const beaconAngle = base + (n / slots) * Math.PI * 2;
-  const beaconPos = new THREE.Vector3(Math.cos(beaconAngle) * 22, 0, Math.sin(beaconAngle) * 22);
+  const beaconPos = new THREE.Vector3(Math.cos(beaconAngle) * 16, 0, Math.sin(beaconAngle) * 16);
   const anchors = [
     { x: 0, z: 0, r: 8 },
     ...terminalPositions.map((p) => ({ x: p.x, z: p.z, r: 5 })),
