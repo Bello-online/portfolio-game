@@ -412,14 +412,18 @@ function tick(dt, t) {
   if (player && state.mode === 'surface') updateSurfaceHud();
 }
 
-window.addEventListener('resize', () => {
-  const aspect = window.innerWidth / window.innerHeight;
+function onResize() {
+  // Guard against a 0×0 window (hidden iframes/tabs report this) — it would poison the projection matrices with NaN.
+  const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+  const aspect = w / h;
   surfaceCamera.aspect = aspect;
   surfaceCamera.updateProjectionMatrix();
   ship.resize(aspect);
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
-});
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+}
+window.addEventListener('resize', onResize);
+onResize();
 
 frame();
 

@@ -68,4 +68,6 @@ public/
 
 ## Deploy
 
-`npm run build` produces a static site in `dist/` — drop it on Vercel, Netlify, or GitHub Pages.
+Live at **https://bello-online.github.io/portfolio-game/**
+
+Every push to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which builds with Vite and publishes `dist/` to GitHub Pages. `vite.config.js` sets `base` to `/portfolio-game/` for production builds so asset URLs resolve under the repo path; local dev stays at `/`. If you rename the repo, change that one value.
